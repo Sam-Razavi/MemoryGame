@@ -1,8 +1,27 @@
-﻿@model List<MemoryGame.Models.Tile>
+﻿@using System.Linq
+@using System.Collections.Generic
+@using MemoryGame.Models
+@model List<MemoryGame.Models.Tile>
+
 @{
     ViewData["Title"] = "Play";
+
     int gameId = (int)ViewBag.GameId;
     int? sel1 = ViewBag.Sel1 as int?;
+    bool gameCompleted = ViewBag.GameCompleted is bool gcFlag && gcFlag;
+
+    int totalTiles = ViewBag.TotalTiles is int tt ? tt : Model.Count;
+    int matchedTiles = ViewBag.MatchedTiles is int mt ? mt : Model.Count(t => t.IsMatched);
+    int remainingPairs = ViewBag.RemainingPairs is int rp ? rp : (totalTiles - matchedTiles) / 2;
+    int lastTurn = ViewBag.LastTurn is int lt ? lt : 0;
+
+    // Players & scores (strongly-typed VM)
+    var players = ViewBag.Players as List<PlayerVm> ?? new List<PlayerVm>();
+    var scores = ViewBag.Scores as IDictionary<int, int> ?? new Dictionary<int, int>();
+
+    int? me = ViewBag.MeUserId as int?;
+    int? currentTurnUserId = ViewBag.CurrentTurnUserId as int?;
+    bool isMyTurn = ViewBag.IsMyTurn is bool isMyTurnFlag && isMyTurnFlag;
 
     // Parse the last pair from TempData if present: "tileId1,tileId2,isMatch(0/1)"
     var lastA = -1; var lastB = -1; var lastMatch = false;
@@ -17,22 +36,54 @@
         }
     }
 
-    int totalTiles = ViewBag.TotalTiles is int tt ? tt : Model.Count;
-    int matchedTiles = ViewBag.MatchedTiles is int mt ? mt : Model.Count(t => t.IsMatched);
-    int remainingPairs = (totalTiles - matchedTiles) / 2;
+    // Banner flags (avoid pattern variables inside the @if)
+    bool bannerIsMyTurn = isMyTurn;
+    bool bannerGameCompleted = gameCompleted;
 }
 
 <h2>Game #@gameId</h2>
+
+@if (!bannerIsMyTurn && !bannerGameCompleted)
+{
+    <div class="alert alert-warning">
+        It’s not your turn right now. The page will auto-update when it’s your turn.
+    </div>
+}
+
 @if (TempData["Error"] != null)
 {
     <div class="alert alert-danger">@TempData["Error"]</div>
 }
 
-<p>
+@if (gameCompleted)
+{
+    <div class="alert alert-success">
+        <strong>Game over!</strong>
+        Winner:
+        <strong>@(ViewBag.WinnerName ?? "Tie")</strong>
+    </div>
+}
+
+<div class="mb-2">
     <strong>Matched tiles:</strong> @matchedTiles / @totalTiles
-    &nbsp; | &nbsp;
-    <strong>Remaining pairs:</strong> @remainingPairs
-</p>
+    &nbsp; | &nbsp; <strong>Remaining pairs:</strong> @remainingPairs
+</div>
+
+<table class="table table-sm w-auto">
+    <thead><tr><th>Player</th><th>Score</th><th>Turn</th></tr></thead>
+    <tbody>
+        @foreach (var p in players)
+        {
+            var score = scores.ContainsKey(p.UserID) ? scores[p.UserID] : 0;
+            bool turn = currentTurnUserId.HasValue && currentTurnUserId.Value == p.UserID && !gameCompleted;
+            <tr>
+                <td>@p.Username @(me.HasValue && me.Value == p.UserID ? "(You)" : "")</td>
+                <td>@score</td>
+                <td>@(turn ? "▶" : "")</td>
+            </tr>
+        }
+    </tbody>
+</table>
 
 <style>
     .grid {
@@ -68,12 +119,21 @@
         border: none;
         background: none;
     }
+
+    .tile .disabled {
+        opacity: 0.5;
+        pointer-events: none;
+    }
 </style>
 
-<div class="grid">
+<div class="grid"
+     data-game-id="@gameId"
+     data-me="@me"
+     data-turn="@currentTurnUserId"
+     data-last="@lastTurn"
+     data-status="@ViewBag.Status">
     @foreach (var t in Model)
     {
-        // Should this tile be shown face-up?
         bool isSelected = sel1.HasValue && sel1.Value == t.TileID;
         bool isLastPicked = (t.TileID == lastA || t.TileID == lastB);
         bool showFace = t.IsMatched || isSelected || isLastPicked;
@@ -90,12 +150,19 @@
             }
             else
             {
-                <form asp-action="Flip" method="post" style="margin:0">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="id" value="@gameId" />
-                    <input type="hidden" name="tileId" value="@t.TileID" />
-                    <button type="submit" class="tile-btn">?</button>
-                </form>
+                if (!gameCompleted && isMyTurn)
+                {
+                    <form asp-action="Flip" method="post" style="margin:0">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@gameId" />
+                        <input type="hidden" name="tileId" value="@t.TileID" />
+                        <button type="submit" class="tile-btn">?</button>
+                    </form>
+                }
+                else
+                {
+                    <button type="button" class="tile-btn" disabled>?</button>
+                }
             }
         </div>
     }
@@ -104,3 +171,47 @@
 <div class="mt-3">
     <a asp-action="Lobby" class="btn btn-secondary">Back to Lobby</a>
 </div>
+
+@section Scripts {
+    <script>
+        (function(){
+            const grid = document.querySelector('.grid');
+            if (!grid) return;
+
+            const gameId = grid.dataset.gameId;
+            const me = parseInt(grid.dataset.me || '-1', 10);
+            let lastTurn = parseInt(grid.dataset.last || '0', 10);
+            let lastStatus = (grid.dataset.status || '').toString();
+            const pollMs = 2000;
+
+            async function poll() {
+                try {
+                    const res = await fetch('@Url.Action("State", "Game")' + '?id=' + encodeURIComponent(gameId), {
+                        method: 'GET',
+                        cache: 'no-store'
+                    });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (!data.ok) return;
+
+                    const statusChanged = data.status !== lastStatus;
+                    const newMove = (data.lastTurn || 0) > lastTurn;
+                    const itsMyTurn = (data.currentTurnUserId === me);
+
+                    if (statusChanged || newMove || itsMyTurn) {
+                        window.location.reload();
+                        return;
+                    }
+                } catch (e) {
+                    // ignore transient errors
+                }
+            }
+
+            const isMyTurn = @(isMyTurn ? "true" : "false");
+            const gameCompleted = @(gameCompleted ? "true" : "false");
+            if (!isMyTurn && !gameCompleted) {
+                setInterval(poll, pollMs);
+            }
+        })();
+    </script>
+}

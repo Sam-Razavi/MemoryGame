@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MemoryGame.Repositories;
+using MemoryGame.Models;
+using System.Linq;
 
 namespace MemoryGame.Controllers
 {
-    public partial class GameController : Controller
+    public class GameController : Controller
     {
         private readonly IGameRepository _games;
         private readonly ICardRepository _cards;
@@ -42,7 +44,7 @@ namespace MemoryGame.Controllers
             return RedirectToAction("Play", new { id = gameId });
         }
 
-        // JOIN (becomes PlayerOrder=2, game -> InProgress)
+        // JOIN (PlayerOrder=2, game -> InProgress)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Join(int id)
@@ -60,7 +62,20 @@ namespace MemoryGame.Controllers
             return RedirectToAction("Play", new { id });
         }
 
-        // PLAY (shows board; seeds cards/tiles on first visit)
+        // helper: determine whose turn it is
+        private async Task<int?> GetCurrentTurnUserIdAsync(int gameId, List<PlayerVm> players)
+        {
+            var last = await _moves.GetLastMoveAsync(gameId);
+            if (last is null)
+            {
+                return players.OrderBy(p => p.PlayerOrder).FirstOrDefault()?.UserID;
+            }
+            if (last.IsMatch) return last.UserID;
+            var other = players.FirstOrDefault(p => p.UserID != last.UserID);
+            return other?.UserID;
+        }
+
+        // PLAY
         [HttpGet]
         public async Task<IActionResult> Play(int id)
         {
@@ -71,16 +86,11 @@ namespace MemoryGame.Controllers
                 return RedirectToAction("Lobby");
             }
 
-            // Seed cards and board if needed
-            if (await _cards.CountAsync() == 0)
-                await _cards.SeedDefaultPairsAsync();
-
-            if (!await _tiles.AnyForGameAsync(id))
-                await _tiles.CreateForGameAsync(id, 16); // 4x4 board
+            if (await _cards.CountAsync() == 0) await _cards.SeedDefaultPairsAsync();
+            if (!await _tiles.AnyForGameAsync(id)) await _tiles.CreateForGameAsync(id, 16);
 
             var tiles = await _tiles.GetByGameAsync(id);
 
-            // selection from session (two-click flow)
             var sel1Key = $"sel1_{id}";
             var sel1 = HttpContext.Session.GetInt32(sel1Key);
 
@@ -88,20 +98,88 @@ namespace MemoryGame.Controllers
             ViewBag.Status = game.Status;
             ViewBag.Sel1 = sel1;
 
-            // simple counters
-            ViewBag.TotalTiles = tiles.Count;
-            ViewBag.MatchedTiles = tiles.Count(t => t.IsMatched);
+            var players = await _games.GetPlayersAsync(id);
+            var scores = await _moves.GetScoresAsync(id);
+            ViewBag.Players = players;
+            ViewBag.Scores = scores;
+
+            int totalTiles = tiles.Count;
+            int matchedTiles = tiles.Count(t => t.IsMatched);
+            int remainingPairs = (totalTiles - matchedTiles) / 2;
+
+            ViewBag.TotalTiles = totalTiles;
+            ViewBag.MatchedTiles = matchedTiles;
+            ViewBag.RemainingPairs = remainingPairs;
+
+            if (remainingPairs == 0 && game.Status != "Completed")
+            {
+                int score1 = players.Count > 0 && scores.ContainsKey(players[0].UserID) ? scores[players[0].UserID] : 0;
+                int score2 = players.Count > 1 && scores.ContainsKey(players[1].UserID) ? scores[players[1].UserID] : 0;
+
+                int? winnerGpid = null;
+                if (score1 > score2) winnerGpid = players[0].GamePlayerID;
+                else if (score2 > score1) winnerGpid = players[1].GamePlayerID;
+
+                await _games.CompleteGameAsync(id, winnerGpid);
+                game = await _games.GetByIdAsync(id);
+            }
+
+            int? currentTurnUserId = null;
+            if (game.Status == "InProgress" || game.Status == "Waiting")
+                currentTurnUserId = await GetCurrentTurnUserIdAsync(id, players);
+
+            var me = HttpContext.Session.GetInt32("UserID");
+            ViewBag.MeUserId = me;
+            ViewBag.CurrentTurnUserId = currentTurnUserId;
+            ViewBag.IsMyTurn = (me.HasValue && currentTurnUserId.HasValue && me.Value == currentTurnUserId.Value);
+            ViewBag.GameCompleted = (game.Status == "Completed");
+
+            if ((players?.Count ?? 0) == 1 && me.HasValue && me.Value == players[0].UserID && !((bool)ViewBag.GameCompleted))
+            {
+                ViewBag.IsMyTurn = true;
+            }
+
+            if (game.Status == "Completed")
+            {
+                string winnerName = "Tie";
+                if (game.WinnerGamePlayerID.HasValue)
+                {
+                    var winner = players.FirstOrDefault(p => p.GamePlayerID == game.WinnerGamePlayerID.Value);
+                    if (winner != null) winnerName = winner.Username;
+                }
+                ViewBag.WinnerName = winnerName;
+            }
+
+            var last = await _moves.GetLastMoveAsync(id);
+            ViewBag.LastTurn = last?.TurnNumber ?? 0;
+
+            var lastPair = TempData["LastPair"];
+            if (lastPair != null) TempData["LastPair"] = lastPair;
 
             return View(tiles);
         }
 
-        // FLIP (handles two clicks -> records a Move; marks matched tiles)
+        // FLIP
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Flip(int id, int tileId)
         {
-            var userId = HttpContext.Session.GetInt32("UserID");
-            if (userId is null) return RedirectToAction("Login", "Account");
+            var me = HttpContext.Session.GetInt32("UserID");
+            if (me is null) return RedirectToAction("Login", "Account");
+
+            var game = await _games.GetByIdAsync(id);
+            if (game == null) { TempData["Error"] = "Game not found."; return RedirectToAction("Lobby"); }
+            if (game.Status == "Completed") { TempData["Error"] = "Game already completed."; return RedirectToAction("Play", new { id }); }
+
+            var players = await _games.GetPlayersAsync(id);
+            if (players.Count < 1) { TempData["Error"] = "No players in this game."; return RedirectToAction("Play", new { id }); }
+
+            var currentTurnUserId = await GetCurrentTurnUserIdAsync(id, players);
+            if (currentTurnUserId.HasValue && me.Value != currentTurnUserId.Value)
+            {
+                TempData["Error"] = "Not your turn.";
+                return RedirectToAction("Play", new { id });
+            }
 
             var sel1Key = $"sel1_{id}";
             var sel1 = HttpContext.Session.GetInt32(sel1Key);
@@ -122,7 +200,6 @@ namespace MemoryGame.Controllers
                     return RedirectToAction("Play", new { id });
                 }
 
-                // ✅ Correct match rule: compare Card.PairKey, not CardID
                 var key1 = await _tiles.GetPairKeyAsync(first.TileID);
                 var key2 = await _tiles.GetPairKeyAsync(second.TileID);
                 bool isMatch = !string.IsNullOrEmpty(key1) && key1 == key2;
@@ -130,14 +207,49 @@ namespace MemoryGame.Controllers
                 if (isMatch)
                     await _tiles.SetMatchedAsync(first.TileID, second.TileID);
 
-                await _moves.RecordAsync(id, userId.Value, first.TileID, second.TileID, isMatch);
+                await _moves.RecordAsync(id, me.Value, first.TileID, second.TileID, isMatch);
 
-                // For one render, reveal both picked tiles (UX)
                 TempData["LastPair"] = $"{first.TileID},{second.TileID},{(isMatch ? 1 : 0)}";
-
                 HttpContext.Session.Remove(sel1Key);
+
                 return RedirectToAction("Play", new { id });
             }
+        }
+
+        // POLLING JSON
+        [HttpGet]
+        public async Task<IActionResult> State(int id)
+        {
+            var game = await _games.GetByIdAsync(id);
+            if (game == null) return Json(new { ok = false });
+
+            var players = await _games.GetPlayersAsync(id);
+            int? currentTurnUserId = null;
+            if (game.Status == "InProgress" || game.Status == "Waiting")
+                currentTurnUserId = await GetCurrentTurnUserIdAsync(id, players);
+
+            var last = await _moves.GetLastMoveAsync(id);
+            int lastTurn = last?.TurnNumber ?? 0;
+
+            string? winnerName = null;
+            if (game.Status == "Completed")
+            {
+                winnerName = "Tie";
+                if (game.WinnerGamePlayerID.HasValue)
+                {
+                    var winner = players.FirstOrDefault(p => p.GamePlayerID == game.WinnerGamePlayerID.Value);
+                    if (winner != null) winnerName = winner.Username;
+                }
+            }
+
+            return Json(new
+            {
+                ok = true,
+                status = game.Status,
+                currentTurnUserId,
+                lastTurn,
+                winnerName
+            });
         }
     }
 }
