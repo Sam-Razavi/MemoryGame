@@ -6,24 +6,30 @@
 @{
     ViewData["Title"] = "Play";
 
+    // --- Basics ---
     int gameId = (int)ViewBag.GameId;
     int? sel1 = ViewBag.Sel1 as int?;
-    bool gameCompleted = ViewBag.GameCompleted is bool gcFlag && gcFlag;
 
+    // Flags (avoid Razor pattern vars inside @if to prevent CS0128/CS0165)
+    bool gameCompleted = ViewBag.GameCompleted is bool gcFlag && gcFlag;
+    bool isMyTurn = ViewBag.IsMyTurn is bool myTurnFlag && myTurnFlag;
+
+    // Counters
     int totalTiles = ViewBag.TotalTiles is int tt ? tt : Model.Count;
     int matchedTiles = ViewBag.MatchedTiles is int mt ? mt : Model.Count(t => t.IsMatched);
     int remainingPairs = ViewBag.RemainingPairs is int rp ? rp : (totalTiles - matchedTiles) / 2;
-    int lastTurn = ViewBag.LastTurn is int lt ? lt : 0;
 
-    // Players & scores (strongly-typed VM)
+    // Misc
+    int lastTurn = ViewBag.LastTurn is int lt ? lt : 0;
+    string statusText = (ViewBag.Status as string) ?? "Waiting";
+
+    // Players & scores
     var players = ViewBag.Players as List<PlayerVm> ?? new List<PlayerVm>();
     var scores = ViewBag.Scores as IDictionary<int, int> ?? new Dictionary<int, int>();
-
     int? me = ViewBag.MeUserId as int?;
     int? currentTurnUserId = ViewBag.CurrentTurnUserId as int?;
-    bool isMyTurn = ViewBag.IsMyTurn is bool isMyTurnFlag && isMyTurnFlag;
 
-    // Parse the last pair from TempData if present: "tileId1,tileId2,isMatch(0/1)"
+    // Last picked pair (to reveal both once)
     var lastA = -1; var lastB = -1; var lastMatch = false;
     if (TempData["LastPair"] is string lp)
     {
@@ -36,146 +42,259 @@
         }
     }
 
-    // Banner flags (avoid pattern variables inside the @if)
-    bool bannerIsMyTurn = isMyTurn;
-    bool bannerGameCompleted = gameCompleted;
+    // Convenience for banner
+    bool showNotYourTurn = !isMyTurn && !gameCompleted;
 }
 
-<h2>Game #@gameId</h2>
-
-@if (!bannerIsMyTurn && !bannerGameCompleted)
-{
-    <div class="alert alert-warning">
-        It’s not your turn right now. The page will auto-update when it’s your turn.
-    </div>
-}
+<h2 class="mb-3">Game #@gameId</h2>
 
 @if (TempData["Error"] != null)
 {
-    <div class="alert alert-danger">@TempData["Error"]</div>
+    <div class="alert alert-danger mb-3">@TempData["Error"]</div>
 }
 
-@if (gameCompleted)
-{
-    <div class="alert alert-success">
-        <strong>Game over!</strong>
-        Winner:
-        <strong>@(ViewBag.WinnerName ?? "Tie")</strong>
+<div class="row g-3">
+    <!-- Header KPI card -->
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+                <span class="badge
+                    @(statusText == "Completed" ? "bg-success" : statusText == "InProgress" ? "bg-primary" : "bg-secondary")">
+                    @statusText
+                </span>
+
+                <div class="vr"></div>
+
+                <div>
+                    <strong>Matched:</strong> @matchedTiles / @totalTiles
+                    <span class="text-muted">(&nbsp;@remainingPairs remaining pairs&nbsp;)</span>
+                </div>
+
+                <div class="vr d-none d-md-block"></div>
+
+                <div class="ms-auto">
+                    @if (!gameCompleted)
+                    {
+                        if (currentTurnUserId.HasValue)
+                        {
+                            var current = players.FirstOrDefault(p => p.UserID == currentTurnUserId.Value);
+                            <span class="fw-semibold">Turn:</span>
+                            <span class="@(isMyTurn ? "text-primary fw-bold" : "text-body")">
+                                @(current?.Username ?? "Player")
+                                @(isMyTurn ? "(You)" : "")
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">Waiting for players…</span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="fw-semibold text-success">Winner:</span>
+                        <span class="fw-bold">@((ViewBag.WinnerName as string) ?? "Tie")</span>
+                    }
+                </div>
+            </div>
+        </div>
     </div>
-}
 
-<div class="mb-2">
-    <strong>Matched tiles:</strong> @matchedTiles / @totalTiles
-    &nbsp; | &nbsp; <strong>Remaining pairs:</strong> @remainingPairs
-</div>
-
-<table class="table table-sm w-auto">
-    <thead><tr><th>Player</th><th>Score</th><th>Turn</th></tr></thead>
-    <tbody>
-        @foreach (var p in players)
-        {
-            var score = scores.ContainsKey(p.UserID) ? scores[p.UserID] : 0;
-            bool turn = currentTurnUserId.HasValue && currentTurnUserId.Value == p.UserID && !gameCompleted;
-            <tr>
-                <td>@p.Username @(me.HasValue && me.Value == p.UserID ? "(You)" : "")</td>
-                <td>@score</td>
-                <td>@(turn ? "▶" : "")</td>
-            </tr>
-        }
-    </tbody>
-</table>
-
-<style>
-    .grid {
-        display: grid;
-        grid-template-columns: repeat(4, 100px);
-        gap: 10px;
-    }
-
-    .tile {
-        width: 100px;
-        height: 100px;
-        border: 1px solid #ccc;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .matched {
-        background: #d4edda;
-    }
-    /* green for matched */
-    .selected {
-        outline: 3px solid #0d6efd;
-    }
-
-    .revealed {
-        background: #f8f9fa;
-    }
-    /* temporary reveal for non-matched */
-    button.tile-btn {
-        width: 100%;
-        height: 100%;
-        border: none;
-        background: none;
-    }
-
-    .tile .disabled {
-        opacity: 0.5;
-        pointer-events: none;
-    }
-</style>
-
-<div class="grid"
-     data-game-id="@gameId"
-     data-me="@me"
-     data-turn="@currentTurnUserId"
-     data-last="@lastTurn"
-     data-status="@ViewBag.Status">
-    @foreach (var t in Model)
-    {
-        bool isSelected = sel1.HasValue && sel1.Value == t.TileID;
-        bool isLastPicked = (t.TileID == lastA || t.TileID == lastB);
-        bool showFace = t.IsMatched || isSelected || isLastPicked;
-
-        var classes = "tile";
-        if (t.IsMatched) classes += " matched";
-        else if (isSelected || isLastPicked) classes += " revealed";
-        if (isSelected) classes += " selected";
-
-        <div class="@classes">
-            @if (showFace)
+    <!-- Players card -->
+    <div class="col-12 col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-light">
+                <strong>Players</strong>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Player</th>
+                            <th class="text-center">Score</th>
+                            <th class="text-center">Turn</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in players)
+                        {
+                            var score = scores.ContainsKey(p.UserID) ? scores[p.UserID] : 0;
+                            bool turn = currentTurnUserId.HasValue && currentTurnUserId.Value == p.UserID && !gameCompleted;
+                            <tr>
+                                <td>
+                                    @p.Username
+                                    @if (me.HasValue && me.Value == p.UserID)
+                                    {
+                                        <span class="text-muted"> (You)</span>
+                                        ;
+                                    }
+                                </td>
+                                <td class="text-center"><span class="badge bg-dark-subtle text-dark">@score</span></td>
+                                <td class="text-center">@((turn) ? "▶" : "")</td>
+                            </tr>
+                        }
+                        @if (!players.Any())
+                        {
+                            <tr><td colspan="3" class="text-muted text-center py-3">No players yet.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (showNotYourTurn)
             {
-                <span>@t.CardName</span>
-            }
-            else
-            {
-                if (!gameCompleted && isMyTurn)
-                {
-                    <form asp-action="Flip" method="post" style="margin:0">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@gameId" />
-                        <input type="hidden" name="tileId" value="@t.TileID" />
-                        <button type="submit" class="tile-btn">?</button>
-                    </form>
-                }
-                else
-                {
-                    <button type="button" class="tile-btn" disabled>?</button>
-                }
+                <div class="card-footer bg-warning-subtle text-warning-emphasis">
+                    It’s not your turn. The page will auto-update when it’s your turn.
+                </div>
             }
         </div>
-    }
-</div>
+    </div>
 
-<div class="mt-3">
-    <a asp-action="Lobby" class="btn btn-secondary">Back to Lobby</a>
+    <!-- Board card -->
+    <div class="col-12 col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <strong>Board</strong>
+                <a asp-action="Lobby" class="btn btn-sm btn-outline-secondary">Back to Lobby</a>
+            </div>
+            <div class="card-body">
+
+                <style>
+                    /* Grid */
+                    .board-grid {
+                        display: grid;
+                        grid-template-columns: repeat(4, minmax(80px, 1fr));
+                        gap: 12px;
+                        justify-items: center;
+                    }
+
+                    /* Card flip container */
+                    .flip {
+                        perspective: 900px;
+                        width: 100px;
+                        height: 120px;
+                    }
+
+                    .flip-inner {
+                        position: relative;
+                        width: 100%;
+                        height: 100%;
+                        transition: transform 0.35s ease;
+                        transform-style: preserve-3d;
+                    }
+
+                    .flipped .flip-inner {
+                        transform: rotateY(180deg);
+                    }
+
+                    .face {
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        backface-visibility: hidden;
+                        border-radius: .5rem;
+                        border: 1px solid #dcdcdc;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: 600;
+                        user-select: none;
+                    }
+
+                        .face.front {
+                            background: #0d6efd;
+                            color: #fff;
+                        }
+
+                        .face.back {
+                            background: #ffffff;
+                            transform: rotateY(180deg);
+                        }
+
+                    /* States */
+                    .tile-matched .face.back {
+                        background: #d4edda; /* green-ish */
+                        border-color: #b7dfb9;
+                    }
+
+                    .tile-selected .face.back {
+                        outline: 3px solid #0d6efd;
+                        outline-offset: 2px;
+                    }
+
+                    .tile-revealed .face.back {
+                        background: #f8f9fa;
+                    }
+
+                    /* Button styling inside front */
+                    .tile-btn {
+                        width: 100%;
+                        height: 100%;
+                        border: none;
+                        background: transparent;
+                        color: inherit;
+                        font: inherit;
+                        cursor: pointer;
+                    }
+
+                        .tile-btn:disabled {
+                            opacity: .55;
+                            cursor: not-allowed;
+                        }
+                </style>
+
+                <div class="board-grid"
+                     data-game-id="@gameId"
+                     data-me="@me"
+                     data-turn="@currentTurnUserId"
+                     data-last="@lastTurn"
+                     data-status="@ViewBag.Status">
+                    @foreach (var t in Model)
+                    {
+                        bool isSelected = sel1.HasValue && sel1.Value == t.TileID;
+                        bool isLastPicked = (t.TileID == lastA || t.TileID == lastB);
+                        bool showFace = t.IsMatched || isSelected || isLastPicked;
+
+                        var outerClasses = "flip";
+                        var stateClass = "";
+                        if (t.IsMatched) stateClass += " tile-matched";
+                        else if (isSelected) stateClass += " tile-selected";
+                        else if (isLastPicked) stateClass += " tile-revealed";
+
+                        <div class="@(outerClasses) @(stateClass) @(showFace ? "flipped" : "")">
+                            <div class="flip-inner">
+                                <!-- FRONT (hidden side with ?) -->
+                                <div class="face front">
+                                    @if (!gameCompleted && isMyTurn)
+                                    {
+                                        <form asp-action="Flip" method="post" class="w-100 h-100 m-0">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@gameId" />
+                                            <input type="hidden" name="tileId" value="@t.TileID" />
+                                            <button type="submit" class="tile-btn">?</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="tile-btn" disabled>?</button>
+                                    }
+                                </div>
+
+                                <!-- BACK (revealed) -->
+                                <div class="face back">@t.CardName</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
     <script>
         (function(){
-            const grid = document.querySelector('.grid');
+            // Lightweight polling to refresh when opponent moves / status changes / it's now your turn.
+            const grid = document.querySelector('.board-grid');
             if (!grid) return;
 
             const gameId = grid.dataset.gameId;
@@ -203,7 +322,7 @@
                         return;
                     }
                 } catch (e) {
-                    // ignore transient errors
+                    // ignore
                 }
             }
 
