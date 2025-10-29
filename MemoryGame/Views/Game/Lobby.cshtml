@@ -1,0 +1,43 @@
+﻿@model IEnumerable<MemoryGame.Models.Game>
+@{
+    ViewData["Title"] = "Lobby";
+}
+<h2>Game Lobby</h2>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
+<form asp-action="Create" method="post">
+    <button type="submit" class="btn btn-primary mb-3">Create New Game</button>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr><th>ID</th><th>Status</th><th>Created</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var g in Model)
+        {
+            <tr>
+                <td>@g.GameID</td>
+                <td>@g.Status</td>
+                <td>@g.CreatedAt</td>
+                <td>
+                    @if (g.Status == "Waiting")
+                    {
+                        <form asp-action="Join" method="post">
+                            <input type="hidden" name="id" value="@g.GameID" />
+                            <button class="btn btn-success btn-sm">Join</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="text-muted">In Progress</span>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

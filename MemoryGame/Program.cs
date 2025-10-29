@@ -1,4 +1,4 @@
-using MemoryGame.Data;
+﻿using MemoryGame.Data;
 using MemoryGame.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,11 +6,13 @@ var builder = WebApplication.CreateBuilder(args);
 // MVC
 builder.Services.AddControllersWithViews();
 
-// ?? DB factory + repository
+// 🔌 DB factory + repository
 builder.Services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IGameRepository, GameRepository>();
 
-// ?? Sessions
+
+// 🧁 Sessions
 builder.Services.AddSession(options =>
 {
     options.Cookie.HttpOnly = true;
