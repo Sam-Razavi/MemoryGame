@@ -1,0 +1,16 @@
+﻿@{
+    ViewData["Title"] = "Register";
+}
+<h2>Register</h2>
+<form method="post">
+    <div><label>Username</label><input name="username" /></div>
+    <div><label>Email</label><input name="email" type="email" /></div>
+    <div><label>Password</label><input name="password" type="password" /></div>
+    <button type="submit">Create account</button>
+</form>
+<div style="color:red">
+    @foreach (var e in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+    {
+        <div>@e.ErrorMessage</div>
+    }
+</div>
