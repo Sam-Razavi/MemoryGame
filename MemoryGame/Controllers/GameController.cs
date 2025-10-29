@@ -24,7 +24,6 @@ namespace MemoryGame.Controllers
             _moves = moves;
         }
 
-        // LOBBY
         [HttpGet]
         public async Task<IActionResult> Lobby()
         {
@@ -32,7 +31,6 @@ namespace MemoryGame.Controllers
             return View(games);
         }
 
-        // CREATE (player becomes PlayerOrder=1)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create()
@@ -44,7 +42,6 @@ namespace MemoryGame.Controllers
             return RedirectToAction("Play", new { id = gameId });
         }
 
-        // JOIN (PlayerOrder=2, game -> InProgress)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Join(int id)
@@ -58,24 +55,18 @@ namespace MemoryGame.Controllers
                 TempData["Error"] = "Game is full or already started.";
                 return RedirectToAction("Lobby");
             }
-
             return RedirectToAction("Play", new { id });
         }
 
-        // helper: determine whose turn it is
         private async Task<int?> GetCurrentTurnUserIdAsync(int gameId, List<PlayerVm> players)
         {
             var last = await _moves.GetLastMoveAsync(gameId);
-            if (last is null)
-            {
-                return players.OrderBy(p => p.PlayerOrder).FirstOrDefault()?.UserID;
-            }
+            if (last is null) return players.OrderBy(p => p.PlayerOrder).FirstOrDefault()?.UserID;
             if (last.IsMatch) return last.UserID;
             var other = players.FirstOrDefault(p => p.UserID != last.UserID);
             return other?.UserID;
         }
 
-        // PLAY
         [HttpGet]
         public async Task<IActionResult> Play(int id)
         {
@@ -102,6 +93,10 @@ namespace MemoryGame.Controllers
             var scores = await _moves.GetScoresAsync(id);
             ViewBag.Players = players;
             ViewBag.Scores = scores;
+
+            // NEW: history
+            var history = await _moves.GetHistoryAsync(id);
+            ViewBag.History = history;
 
             int totalTiles = tiles.Count;
             int matchedTiles = tiles.Count(t => t.IsMatched);
@@ -134,7 +129,7 @@ namespace MemoryGame.Controllers
             ViewBag.IsMyTurn = (me.HasValue && currentTurnUserId.HasValue && me.Value == currentTurnUserId.Value);
             ViewBag.GameCompleted = (game.Status == "Completed");
 
-            if ((players?.Count ?? 0) == 1 && me.HasValue && me.Value == players[0].UserID && !((bool)ViewBag.GameCompleted))
+            if ((players?.Count ?? 0) == 1 && me.HasValue && me.Value == players[0].UserID && !(bool)ViewBag.GameCompleted)
             {
                 ViewBag.IsMyTurn = true;
             }
@@ -159,7 +154,6 @@ namespace MemoryGame.Controllers
             return View(tiles);
         }
 
-        // FLIP
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Flip(int id, int tileId)
@@ -216,7 +210,7 @@ namespace MemoryGame.Controllers
             }
         }
 
-        // POLLING JSON
+        // JSON poll endpoint (unchanged)
         [HttpGet]
         public async Task<IActionResult> State(int id)
         {
@@ -250,6 +244,25 @@ namespace MemoryGame.Controllers
                 lastTurn,
                 winnerName
             });
+        }
+
+        // NEW: Rematch – create a fresh game with the same two players
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Rematch(int id)
+        {
+            var me = HttpContext.Session.GetInt32("UserID");
+            if (me is null) return RedirectToAction("Login", "Account");
+
+            var players = await _games.GetPlayersAsync(id);
+            if (players.Count != 2)
+            {
+                TempData["Error"] = "Rematch requires exactly two players.";
+                return RedirectToAction("Play", new { id });
+            }
+
+            var gNew = await _games.CreateGameWithPlayersAsync(players[0].UserID, players[1].UserID);
+            return RedirectToAction("Play", new { id = gNew });
         }
     }
 }

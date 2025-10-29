@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.SqlClient;
 using MemoryGame.Data;
+using MemoryGame.Models;
 
 namespace MemoryGame.Repositories
 {
@@ -13,6 +14,7 @@ namespace MemoryGame.Repositories
 
         Task<LastMove?> GetLastMoveAsync(int gameId);
         Task<Dictionary<int, int>> GetScoresAsync(int gameId); // UserID -> pairs
+        Task<List<MoveVm>> GetHistoryAsync(int gameId);
     }
 
     public class MoveRepository : IMoveRepository
@@ -26,7 +28,8 @@ namespace MemoryGame.Repositories
             await conn.OpenAsync();
             var cmd = new SqlCommand("SELECT ISNULL(MAX(TurnNumber),0)+1 FROM dbo.Move WHERE GameID=@g", conn);
             cmd.Parameters.AddWithValue("@g", gameId);
-            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+            var val = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt32(val ?? 0);
         }
 
         public async Task<int?> GetLastMoverUserIdAsync(int gameId)
@@ -91,6 +94,34 @@ GROUP BY UserID;", conn);
                 result[rd.GetInt32(0)] = rd.GetInt32(1);
             }
             return result;
+        }
+
+        public async Task<List<MoveVm>> GetHistoryAsync(int gameId)
+        {
+            const string sql = @"
+SELECT m.TurnNumber, m.UserID, u.Username, m.IsMatch, m.CreatedAt
+FROM dbo.Move m
+JOIN dbo.[User] u ON u.UserID = m.UserID
+WHERE m.GameID = @g
+ORDER BY m.TurnNumber;";
+            var list = new List<MoveVm>();
+            using var conn = _factory.Create();
+            await conn.OpenAsync();
+            var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@g", gameId);
+            using var rd = await cmd.ExecuteReaderAsync();
+            while (await rd.ReadAsync())
+            {
+                list.Add(new MoveVm
+                {
+                    TurnNumber = rd.GetInt32(0),
+                    UserID = rd.GetInt32(1),
+                    Username = rd.GetString(2),
+                    IsMatch = rd.GetBoolean(3),
+                    CreatedAt = rd.GetDateTime(4)
+                });
+            }
+            return list;
         }
     }
 }

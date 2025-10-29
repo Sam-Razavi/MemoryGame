@@ -8,6 +8,7 @@ namespace MemoryGame.Repositories
     {
         Task<IEnumerable<Game>> GetActiveGamesAsync();
         Task<int> CreateGameAsync(int userId);
+        Task<int> CreateGameWithPlayersAsync(int user1Id, int user2Id); // NEW
         Task<bool> JoinGameAsync(int gameId, int userId);
         Task<Game?> GetByIdAsync(int gameId);
 
@@ -75,6 +76,43 @@ namespace MemoryGame.Repositories
             }
         }
 
+        // NEW: create a game immediately with two players and mark InProgress
+        public async Task<int> CreateGameWithPlayersAsync(int user1Id, int user2Id)
+        {
+            using var conn = _factory.Create();
+            await conn.OpenAsync();
+            using var tran = conn.BeginTransaction();
+            try
+            {
+                var cmdGame = new SqlCommand(
+                    "INSERT INTO dbo.Game (Status) VALUES ('InProgress'); SELECT SCOPE_IDENTITY();",
+                    conn, tran);
+                var gameId = Convert.ToInt32(await cmdGame.ExecuteScalarAsync());
+
+                var p1 = new SqlCommand(
+                    "INSERT INTO dbo.GamePlayer (GameID, UserID, PlayerOrder) VALUES (@g, @u, 1);",
+                    conn, tran);
+                p1.Parameters.AddWithValue("@g", gameId);
+                p1.Parameters.AddWithValue("@u", user1Id);
+                await p1.ExecuteNonQueryAsync();
+
+                var p2 = new SqlCommand(
+                    "INSERT INTO dbo.GamePlayer (GameID, UserID, PlayerOrder) VALUES (@g, @u, 2);",
+                    conn, tran);
+                p2.Parameters.AddWithValue("@g", gameId);
+                p2.Parameters.AddWithValue("@u", user2Id);
+                await p2.ExecuteNonQueryAsync();
+
+                await tran.CommitAsync();
+                return gameId;
+            }
+            catch
+            {
+                await tran.RollbackAsync();
+                throw;
+            }
+        }
+
         public async Task<bool> JoinGameAsync(int gameId, int userId)
         {
             const string sqlCheck = @"SELECT COUNT(*) FROM dbo.GamePlayer WHERE GameID = @GameID;";
@@ -84,7 +122,7 @@ namespace MemoryGame.Repositories
 
             var cmdCount = new SqlCommand(sqlCheck, conn);
             cmdCount.Parameters.AddWithValue("@GameID", gameId);
-            int count = (int)await cmdCount.ExecuteScalarAsync();
+            int count = (int)(await cmdCount.ExecuteScalarAsync() ?? 0);
             if (count >= 2) return false;
 
             const string sqlInsert = @"
