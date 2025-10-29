@@ -10,12 +10,19 @@
 }
 
 <form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
     <button type="submit" class="btn btn-primary mb-3">Create New Game</button>
 </form>
 
 <table class="table table-striped">
     <thead>
-        <tr><th>ID</th><th>Status</th><th>Created</th><th>Action</th></tr>
+        <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Play</th>
+            <th>Action</th>
+        </tr>
     </thead>
     <tbody>
         @foreach (var g in Model)
@@ -25,9 +32,14 @@
                 <td>@g.Status</td>
                 <td>@g.CreatedAt</td>
                 <td>
+                    <a class="btn btn-outline-primary btn-sm"
+                       asp-action="Play" asp-route-id="@g.GameID">Play</a>
+                </td>
+                <td>
                     @if (g.Status == "Waiting")
                     {
-                        <form asp-action="Join" method="post">
+                        <form asp-action="Join" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@g.GameID" />
                             <button class="btn btn-success btn-sm">Join</button>
                         </form>

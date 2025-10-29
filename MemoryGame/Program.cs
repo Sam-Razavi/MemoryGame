@@ -10,6 +10,9 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IGameRepository, GameRepository>();
+builder.Services.AddScoped<ICardRepository, CardRepository>();
+builder.Services.AddScoped<ITileRepository, TileRepository>();
+builder.Services.AddScoped<IMoveRepository, MoveRepository>();
 
 
 // 🧁 Sessions
