@@ -183,7 +183,7 @@ namespace MemoryGame.Controllers
             ViewBag.IsMyTurn = (me.HasValue && currentTurnUserId.HasValue && me.Value == currentTurnUserId.Value);
             ViewBag.GameCompleted = (game.Status == "Completed");
 
-            // Solo-mode failsafe: if only one player and it's me, allow turn
+            // Solo-mode failsafe
             if ((players?.Count ?? 0) == 1 && me.HasValue && me.Value == players[0].UserID && !(bool)ViewBag.GameCompleted)
             {
                 ViewBag.IsMyTurn = true;
@@ -310,25 +310,6 @@ namespace MemoryGame.Controllers
             });
         }
 
-        // ================================
-        // REMATCH (reuse both players)
-        // ================================
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Rematch(int id)
-        {
-            var me = HttpContext.Session.GetInt32("UserID");
-            if (me is null) return RedirectToAction("Login", "Account");
-
-            var players = await _games.GetPlayersAsync(id);
-            if (players.Count != 2)
-            {
-                TempData["Error"] = "Rematch requires exactly two players.";
-                return RedirectToAction("Play", new { id });
-            }
-
-            var gNew = await _games.CreateGameWithPlayersAsync(players[0].UserID, players[1].UserID);
-            return RedirectToAction("Play", new { id = gNew });
-        }
+        // Rematch endpoint removed
     }
 }

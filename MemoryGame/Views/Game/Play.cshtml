@@ -92,13 +92,7 @@
                             @Html.AntiForgeryToken()
                             <button class="btn btn-success btn-sm">Start New Game</button>
                         </form>
-
-                        <!-- Rematch (reuse both players) -->
-                        <form asp-action="Rematch" method="post" class="m-0">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@gameId" />
-                            <button class="btn btn-outline-primary btn-sm">Rematch</button>
-                        </form>
+                        <!-- Rematch removed -->
                     }
                 </div>
             </div>
@@ -288,7 +282,7 @@
         </div>
     </div>
 
-    <!-- NEW: Moves History card -->
+    <!-- Moves History card -->
     <div class="col-12">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-light">
@@ -361,8 +355,8 @@
                 } catch (e) { }
             }
 
-            const isMyTurn = @(isMyTurn ? "true" : "false");
-            const gameCompleted = @(gameCompleted ? "true" : "false");
+            const isMyTurn = '@(isMyTurn ? "true" : "false")' === 'true';
+            const gameCompleted = '@(gameCompleted ? "true" : "false")' === 'true';
             if (!isMyTurn && !gameCompleted) {
                 setInterval(poll, pollMs);
             }
