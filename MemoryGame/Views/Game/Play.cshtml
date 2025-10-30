@@ -92,7 +92,6 @@
                             @Html.AntiForgeryToken()
                             <button class="btn btn-success btn-sm">Start New Game</button>
                         </form>
-                        <!-- Rematch removed -->
                     }
                 </div>
             </div>
@@ -235,6 +234,21 @@
                             opacity: .55;
                             cursor: not-allowed;
                         }
+
+                    /* Toast */
+                    #joinToast {
+                        position: fixed;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        bottom: 16px;
+                        background: #111;
+                        color: #fff;
+                        padding: 10px 14px;
+                        border-radius: 8px;
+                        display: none;
+                        z-index: 9999;
+                        box-shadow: 0 6px 20px rgba(0,0,0,.25);
+                    }
                 </style>
 
                 <div class="board-grid"
@@ -242,7 +256,9 @@
                      data-me="@me"
                      data-turn="@currentTurnUserId"
                      data-last="@lastTurn"
-                     data-status="@ViewBag.Status">
+                     data-status="@ViewBag.Status"
+                     data-players="@players.Count">
+                    <!-- NEW -->
                     @foreach (var t in Model)
                     {
                         bool isSelected = sel1.HasValue && sel1.Value == t.TileID;
@@ -277,6 +293,8 @@
                         </div>
                     }
                 </div>
+
+                <div id="joinToast">An opponent joined. Loading…</div>
 
             </div>
         </div>
@@ -332,7 +350,13 @@
             const me = parseInt(grid.dataset.me || '-1', 10);
             let lastTurn = parseInt(grid.dataset.last || '0', 10);
             let lastStatus = (grid.dataset.status || '').toString();
+            let lastPlayerCount = parseInt(grid.dataset.players || '0', 10);
             const pollMs = 2000;
+
+            function showToast() {
+                const t = document.getElementById('joinToast');
+                if (t) t.style.display = 'inline-block';
+            }
 
             async function poll() {
                 try {
@@ -348,16 +372,29 @@
                     const newMove = (data.lastTurn || 0) > lastTurn;
                     const itsMyTurn = (data.currentTurnUserId === me);
 
+                    // Detect someone joined: playerCount 1 -> 2 while Waiting
+                    const playersNow = parseInt(data.playerCount || 0, 10);
+                    const someoneJoined = (lastStatus === 'Waiting' && lastPlayerCount === 1 && playersNow === 2);
+                    if (someoneJoined) {
+                        showToast();
+                        setTimeout(() => window.location.reload(), 800);
+                        return;
+                    }
+
                     if (statusChanged || newMove || itsMyTurn) {
                         window.location.reload();
                         return;
                     }
-                } catch (e) { }
+                } catch (e) { /* ignore */ }
             }
 
             const isMyTurn = '@(isMyTurn ? "true" : "false")' === 'true';
             const gameCompleted = '@(gameCompleted ? "true" : "false")' === 'true';
-            if (!isMyTurn && !gameCompleted) {
+
+            // Always poll while Waiting; otherwise only when it's not your turn & not completed
+            if (lastStatus === 'Waiting') {
+                setInterval(poll, pollMs);
+            } else if (!isMyTurn && !gameCompleted) {
                 setInterval(poll, pollMs);
             }
         })();

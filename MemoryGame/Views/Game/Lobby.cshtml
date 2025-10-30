@@ -5,6 +5,10 @@
 
 <h2>Game Lobby</h2>
 
+@if (TempData["Info"] != null)
+{
+    <div class="alert alert-info">@TempData["Info"]</div>
+}
 @if (TempData["Error"] != null)
 {
     <div class="alert alert-warning">@TempData["Error"]</div>
@@ -15,7 +19,7 @@
     <button type="submit" class="btn btn-primary">Create New Game</button>
 </form>
 
-<table class="table table-striped align-middle">
+<table class="table table-striped align-middle" id="lobbyTable">
     <thead>
         <tr>
             <th>ID</th>
@@ -28,18 +32,18 @@
     <tbody>
         @foreach (var r in Model)
         {
-            <tr>
+            <tr data-game-id="@r.GameID" data-player-count="@r.PlayerCount" data-status="@r.Status" data-i-am-in="@r.IsParticipant">
                 <td>@r.GameID</td>
                 <td>
                     <span class="badge @(r.Status == "Completed" ? "bg-success" : r.Status == "InProgress" ? "bg-primary" : "bg-secondary")">
                         @r.Status
                     </span>
                 </td>
-                <td>@r.PlayerCount / 2</td>
+                <td class="players-cell">@r.PlayerCount / 2</td>
                 <td>@r.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
                 <td>
                     <div class="d-flex gap-2">
-                        @if (r.CanPlay)
+                        @if (r.IsParticipant)
                         {
                             <a asp-action="Play" asp-route-id="@r.GameID" class="btn btn-sm btn-outline-primary">Play</a>
                         }
@@ -48,7 +52,7 @@
                             <a asp-action="Play" asp-route-id="@r.GameID" class="btn btn-sm btn-outline-secondary">View</a>
                         }
 
-                        @if (r.CanJoin)
+                        @if (!r.IsParticipant && r.PlayerCount < 2 && r.Status != "InProgress" && r.Status != "Completed")
                         {
                             <form asp-action="Join" method="post" class="m-0">
                                 @Html.AntiForgeryToken()
@@ -76,3 +80,118 @@
         }
     </tbody>
 </table>
+
+<!-- Tiny toast -->
+<style>
+    #joinToast {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 16px;
+        background: #111;
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        display: none;
+        z-index: 9999;
+        box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    }
+
+        #joinToast a {
+            color: #fff;
+            text-decoration: underline;
+        }
+</style>
+<div id="joinToast">
+    Opponent joined your game.
+    <a id="joinToastLink" href="#">Open</a>
+</div>
+
+@section Scripts {
+    <script>
+        (function(){
+          const pollMs = 2000;
+          let snapshot = takeSnapshot();
+
+          function takeSnapshot(){
+            const rows = document.querySelectorAll('#lobbyTable tbody tr');
+            const map = {};
+            rows.forEach(tr => {
+              const id = parseInt(tr.dataset.gameId, 10);
+              const pc = parseInt(tr.dataset.playerCount, 10);
+              const status = (tr.dataset.status || '').toString();
+              const iAmIn = (tr.dataset.iAmIn || 'false') === 'True' || (tr.dataset.iAmIn || 'false') === 'true';
+              map[id] = { playerCount: pc, status, iAmIn };
+            });
+            return map;
+          }
+
+          async function poll(){
+            try{
+              const res = await fetch('@Url.Action("LobbyState", "Game")', { cache: 'no-store' });
+              if (!res.ok) return;
+              const data = await res.json();
+              if (!data.ok) return;
+
+              // Build a quick index from server
+              const server = {};
+              data.games.forEach(g => {
+                server[g.gameId] = {
+                  playerCount: g.playerCount,
+                  status: g.status,
+                  iAmIn: !!g.iAmIn
+                };
+              });
+
+              // Detect: if my game went from 1 -> 2 players => toast + refresh
+              let shouldReload = false;
+              let toastGameId = null;
+
+              Object.keys(server).forEach(idStr => {
+                const id = parseInt(idStr, 10);
+                const s = server[id];
+                const prev = snapshot[id];
+
+                if (!prev) { shouldReload = true; return; } // new row/game appeared
+
+                // any change in playerCount or status => reload
+                if (s.playerCount !== prev.playerCount || s.status !== prev.status) {
+                  shouldReload = true;
+                }
+
+                // special case: my game gets second player
+                if (s.iAmIn && prev && prev.iAmIn && prev.playerCount === 1 && s.playerCount === 2) {
+                  toastGameId = id;
+                }
+              });
+
+              if (toastGameId) {
+                showToast(`/Game/Play/${toastGameId}`);
+                // Let user click; also refresh in a moment so table updates even if they don't click
+                setTimeout(()=>window.location.reload(), 1500);
+                return;
+              }
+
+              if (shouldReload) {
+                window.location.reload();
+                return;
+              }
+            } catch(e){
+              // no-op; try again next tick
+            } finally {
+              setTimeout(poll, pollMs);
+            }
+          }
+
+          function showToast(url){
+            const t = document.getElementById('joinToast');
+            const a = document.getElementById('joinToastLink');
+            a.href = url;
+            t.style.display = 'inline-block';
+          }
+
+          // start polling
+          setTimeout(poll, pollMs);
+        })();
+    </script>
+}

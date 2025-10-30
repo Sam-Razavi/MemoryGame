@@ -4,74 +4,132 @@ using MemoryGame.Models;
 
 namespace MemoryGame.Repositories
 {
-    public interface ICardRepository
-    {
-        Task<int> CountAsync();
-        Task SeedDefaultPairsAsync();
-        Task<List<Card>> GetAllAsync();
-    }
-
     public class CardRepository : ICardRepository
     {
         private readonly IDbConnectionFactory _factory;
         public CardRepository(IDbConnectionFactory factory) => _factory = factory;
 
-        public async Task<int> CountAsync()
-        {
-            using var conn = _factory.Create();
-            await conn.OpenAsync();
-            using var cmd = new SqlCommand("SELECT COUNT(1) FROM dbo.Card", conn);
-            return (int)await cmd.ExecuteScalarAsync();
-        }
+        // ---------- CRUD ----------
 
         public async Task<List<Card>> GetAllAsync()
         {
+            const string sql = @"SELECT CardID, Name, PairKey FROM dbo.Card ORDER BY CardID;";
+            var list = new List<Card>();
             using var conn = _factory.Create();
             await conn.OpenAsync();
-            using var cmd = new SqlCommand("SELECT CardID, Name, ImagePath, PairKey FROM dbo.Card", conn);
+            using var cmd = new SqlCommand(sql, conn);
             using var rd = await cmd.ExecuteReaderAsync();
-            var list = new List<Card>();
             while (await rd.ReadAsync())
             {
                 list.Add(new Card
                 {
                     CardID = rd.GetInt32(0),
                     Name = rd.GetString(1),
-                    ImagePath = rd.IsDBNull(2) ? null : rd.GetString(2),
-                    PairKey = rd.GetString(3)
+                    PairKey = rd.GetString(2)
                 });
             }
             return list;
         }
 
+        public async Task<Card?> GetByIdAsync(int id)
+        {
+            const string sql = @"SELECT CardID, Name, PairKey FROM dbo.Card WHERE CardID=@id;";
+            using var conn = _factory.Create();
+            await conn.OpenAsync();
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@id", id);
+            using var rd = await cmd.ExecuteReaderAsync();
+            if (!await rd.ReadAsync()) return null;
+
+            return new Card
+            {
+                CardID = rd.GetInt32(0),
+                Name = rd.GetString(1),
+                PairKey = rd.GetString(2)
+            };
+        }
+
+        public async Task CreateAsync(Card card)
+        {
+            const string sql = @"INSERT INTO dbo.Card (Name, PairKey) VALUES (@n, @p);";
+            using var conn = _factory.Create();
+            await conn.OpenAsync();
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@n", card.Name ?? string.Empty);
+            cmd.Parameters.AddWithValue("@p", card.PairKey ?? string.Empty);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        public async Task UpdateAsync(Card card)
+        {
+            const string sql = @"UPDATE dbo.Card SET Name=@n, PairKey=@p WHERE CardID=@id;";
+            using var conn = _factory.Create();
+            await conn.OpenAsync();
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@n", card.Name ?? string.Empty);
+            cmd.Parameters.AddWithValue("@p", card.PairKey ?? string.Empty);
+            cmd.Parameters.AddWithValue("@id", card.CardID);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        public async Task DeleteAsync(int id)
+        {
+            const string sql = @"DELETE FROM dbo.Card WHERE CardID=@id;";
+            using var conn = _factory.Create();
+            await conn.OpenAsync();
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@id", id);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        // ---------- Existing helpers (kept for game seeding) ----------
+
+        public async Task<int> CountAsync()
+        {
+            using var conn = _factory.Create();
+            await conn.OpenAsync();
+            using var cmd = new SqlCommand("SELECT COUNT(*) FROM dbo.Card;", conn);
+            var val = await cmd.ExecuteScalarAsync();
+            return Convert.ToInt32(val ?? 0);
+        }
+
+        // Seed a small default set of pairs if table is empty
         public async Task SeedDefaultPairsAsync()
         {
-            // 8 pairs (16 tiles total) – names are simple; you can swap to images later.
-            string[] names = { "Apple", "Car", "Sun", "Moon", "Star", "Tree", "Book", "Fish" };
+            if (await CountAsync() > 0) return;
+
+            var defaults = new (string Name, string PairKey)[]
+            {
+                ("Apple",  "FRUIT_A"),
+                ("Apple",  "FRUIT_A"),
+                ("Banana", "FRUIT_B"),
+                ("Banana", "FRUIT_B"),
+                ("Cat",    "ANIMAL_C"),
+                ("Cat",    "ANIMAL_C"),
+                ("Dog",    "ANIMAL_D"),
+                ("Dog",    "ANIMAL_D")
+            };
 
             using var conn = _factory.Create();
             await conn.OpenAsync();
-
-            foreach (var n in names)
+            using var tran = conn.BeginTransaction();
+            try
             {
-                var exists = new SqlCommand("SELECT 1 FROM dbo.Card WHERE PairKey=@p", conn);
-                exists.Parameters.AddWithValue("@p", n);
-                var has = await exists.ExecuteScalarAsync();
-                if (has is null)
+                foreach (var d in defaults)
                 {
-                    var ins = new SqlCommand(
-                        "INSERT INTO dbo.Card (Name, ImagePath, PairKey) VALUES (@n, NULL, @p)", conn);
-                    ins.Parameters.AddWithValue("@n", n);
-                    ins.Parameters.AddWithValue("@p", n);
-                    await ins.ExecuteNonQueryAsync();
-
-                    // insert the second member of the pair (same PairKey, different row)
-                    var ins2 = new SqlCommand(
-                        "INSERT INTO dbo.Card (Name, ImagePath, PairKey) VALUES (@n2, NULL, @p2)", conn);
-                    ins2.Parameters.AddWithValue("@n2", n);
-                    ins2.Parameters.AddWithValue("@p2", n);
-                    await ins2.ExecuteNonQueryAsync();
+                    var cmd = new SqlCommand(
+                        "INSERT INTO dbo.Card (Name, PairKey) VALUES (@n, @p);",
+                        conn, tran);
+                    cmd.Parameters.AddWithValue("@n", d.Name);
+                    cmd.Parameters.AddWithValue("@p", d.PairKey);
+                    await cmd.ExecuteNonQueryAsync();
                 }
+                await tran.CommitAsync();
+            }
+            catch
+            {
+                await tran.RollbackAsync();
+                throw;
             }
         }
     }

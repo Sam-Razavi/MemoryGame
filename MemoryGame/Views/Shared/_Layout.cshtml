@@ -13,12 +13,44 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/MemoryGame.styles.css" asp-append-version="true" />
+    <style>
+        /* Simple extra polish for presentation */
+        .navbar-custom {
+            background: linear-gradient(90deg, #0d6efd 0%, #6610f2 100%);
+        }
+
+        .navbar-brand, .nav-link, .navbar-text {
+            color: #fff !important;
+        }
+
+            .nav-link:hover {
+                text-decoration: underline;
+            }
+
+        .footer-custom {
+            background: #0d6efd;
+            color: #f8f9fa;
+        }
+
+            .footer-custom a {
+                color: #f8f9fa;
+                text-decoration: underline;
+            }
+
+        .course-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.85);
+        }
+    </style>
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-sm navbar-custom shadow-sm mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">MemoryGame</a>
+                <a class="navbar-brand fw-bold" asp-area="" asp-controller="Home" asp-action="Index">
+                    🎮 MemoryGame
+                </a>
 
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
                         aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -28,29 +60,34 @@
                 <div class="collapse navbar-collapse" id="mainNav">
                     <ul class="navbar-nav me-auto mb-2 mb-sm-0">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-controller="Home" asp-action="Index">Home</a>
+                            <a class="nav-link" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
-                        
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-controller="Game" asp-action="Lobby">Lobby</a>
+                            <a class="nav-link" asp-controller="Game" asp-action="Lobby">Lobby</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="CardAdmin" asp-action="Index">Cards Admin</a>
                         </li>
                     </ul>
 
-                    <!-- Auth area, right aligned -->
+                    <!-- Right side -->
                     <div class="d-flex align-items-center ms-auto">
+                        <span class="course-title me-3">
+                            Databasteknik och Webbaserade System
+                        </span>
+
                         @if (userId is not null)
                         {
-                            <span class="me-2">Hello, @username!</span>
+                            <span class="text-light me-2">👋 @username</span>
                             <form method="post" asp-controller="Account" asp-action="Logout" class="d-inline">
                                 @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
+                                <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
                             </form>
                         }
                         else
                         {
-                            <a class="btn btn-link" asp-controller="Account" asp-action="Login">Login</a>
-                            <span class="mx-1">|</span>
-                            <a class="btn btn-link" asp-controller="Account" asp-action="Register">Register</a>
+                            <a class="btn btn-outline-light btn-sm me-2" asp-controller="Account" asp-action="Login">Login</a>
+                            <a class="btn btn-light btn-sm text-primary" asp-controller="Account" asp-action="Register">Register</a>
                         }
                     </div>
                 </div>
@@ -58,15 +95,16 @@
         </nav>
     </header>
 
-    <div class="container">
+    <div class="container mt-3">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - MemoryGame - <a asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <footer class="footer-custom mt-4 py-3">
+        <div class="container d-flex justify-content-between">
+            <span>&copy; 2025 - MemoryGame</span>
+            <span><a asp-controller="Home" asp-action="Privacy">Privacy</a></span>
         </div>
     </footer>
 

@@ -1,8 +1,35 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<!-- Hero Section -->
+<div class="text-center mt-5">
+    <div class="hero-container">
+        <img src="./images/memory-hero.png" alt="Memory Game Hero" class="hero-img mb-4 shadow-lg" />
+        <h1 class="display-4 fw-bold text-primary">Welcome to MemoryGame</h1>
+        <p class="lead text-muted">
+            A turn-based multiplayer memory challenge built for the course<br />
+            <strong>Databasteknik och Webbaserade System</strong>.
+        </p>
+        <a asp-controller="Game" asp-action="Lobby" class="btn btn-lg btn-primary mt-3 shadow-sm">
+            🎮 Start Playing
+        </a>
+    </div>
 </div>
+
+<style>
+    .hero-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 70vh;
+    }
+
+    .hero-img {
+        max-width: 600px;
+        width: 90%;
+        border-radius: 1rem;
+        object-fit: cover;
+    }
+</style>

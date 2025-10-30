@@ -51,6 +51,29 @@ namespace MemoryGame.Controllers
             return View(rows);
         }
 
+        // GET /Game/LobbyState  (for auto-refresh in lobby)
+        [HttpGet]
+        public async Task<IActionResult> LobbyState()
+        {
+            var me = HttpContext.Session.GetInt32("UserID");
+            var games = await _games.GetActiveGamesAsync();
+
+            var list = new List<object>();
+            foreach (var g in games)
+            {
+                var players = await _games.GetPlayersAsync(g.GameID);
+                list.Add(new
+                {
+                    gameId = g.GameID,
+                    status = g.Status ?? "Waiting",
+                    playerCount = players.Count,
+                    iAmIn = me.HasValue && players.Any(p => p.UserID == me.Value)
+                });
+            }
+
+            return Json(new { ok = true, games = list });
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create()
@@ -273,7 +296,7 @@ namespace MemoryGame.Controllers
         }
 
         // ================================
-        // STATE (JSON for polling)
+        // STATE (JSON for polling) — now includes playerCount
         // ================================
         [HttpGet]
         public async Task<IActionResult> State(int id)
@@ -282,6 +305,8 @@ namespace MemoryGame.Controllers
             if (game == null) return Json(new { ok = false });
 
             var players = await _games.GetPlayersAsync(id);
+            int playerCount = players.Count;
+
             int? currentTurnUserId = null;
             if (game.Status == "InProgress" || game.Status == "Waiting")
                 currentTurnUserId = await GetCurrentTurnUserIdAsync(id, players);
@@ -306,7 +331,8 @@ namespace MemoryGame.Controllers
                 status = game.Status,
                 currentTurnUserId,
                 lastTurn,
-                winnerName
+                winnerName,
+                playerCount   // ← NEW
             });
         }
 
