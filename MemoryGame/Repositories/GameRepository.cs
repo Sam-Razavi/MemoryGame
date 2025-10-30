@@ -17,7 +17,7 @@ namespace MemoryGame.Repositories
         Task CompleteGameAsync(int gameId, int? winnerGamePlayerId);
         Task SetStatusAsync(int gameId, string status);
 
-        Task DeleteGameAsync(int gameId); // NEW
+        Task DeleteGameAsync(int gameId); // delete a game
     }
 
     public class GameRepository : IGameRepository
@@ -25,6 +25,7 @@ namespace MemoryGame.Repositories
         private readonly IDbConnectionFactory _factory;
         public GameRepository(IDbConnectionFactory factory) => _factory = factory;
 
+        // Get all games (latest first)
         public async Task<IEnumerable<Game>> GetActiveGamesAsync()
         {
             const string sql = "SELECT GameID, CreatedAt, EndedAt, Status, WinnerGamePlayerID FROM dbo.Game ORDER BY CreatedAt DESC";
@@ -49,6 +50,7 @@ namespace MemoryGame.Repositories
             return list;
         }
 
+        // Create a new game and add the first player
         public async Task<int> CreateGameAsync(int userId)
         {
             const string sqlGame = @"INSERT INTO dbo.Game (Status) VALUES ('Waiting'); SELECT SCOPE_IDENTITY();";
@@ -78,7 +80,7 @@ namespace MemoryGame.Repositories
             }
         }
 
-        // create an immediately in-progress game with two players (for Rematch)
+        // Create a game and add two players right away
         public async Task<int> CreateGameWithPlayersAsync(int user1Id, int user2Id)
         {
             using var conn = _factory.Create();
@@ -115,12 +117,13 @@ namespace MemoryGame.Repositories
             }
         }
 
+        // Add player to an existing game
         public async Task<bool> JoinGameAsync(int gameId, int userId)
         {
             using var conn = _factory.Create();
             await conn.OpenAsync();
 
-            // Already in this game? -> no-op false
+            // Check if user already joined
             var cmdAlready = new SqlCommand(
                 "SELECT COUNT(*) FROM dbo.GamePlayer WHERE GameID=@g AND UserID=@u;",
                 conn);
@@ -129,7 +132,7 @@ namespace MemoryGame.Repositories
             int already = Convert.ToInt32(await cmdAlready.ExecuteScalarAsync() ?? 0);
             if (already > 0) return false;
 
-            // Full?
+            // Check if game already has 2 players
             var cmdCount = new SqlCommand(
                 "SELECT COUNT(*) FROM dbo.GamePlayer WHERE GameID=@g;",
                 conn);
@@ -137,7 +140,7 @@ namespace MemoryGame.Repositories
             int count = Convert.ToInt32(await cmdCount.ExecuteScalarAsync() ?? 0);
             if (count >= 2) return false;
 
-            // Insert as player 2 and set InProgress
+            // Add new player and set game to InProgress
             var cmd = new SqlCommand(@"
 INSERT INTO dbo.GamePlayer (GameID, UserID, PlayerOrder) VALUES (@g, @u, 2);
 UPDATE dbo.Game SET Status = 'InProgress' WHERE GameID = @g;", conn);
@@ -148,6 +151,7 @@ UPDATE dbo.Game SET Status = 'InProgress' WHERE GameID = @g;", conn);
             return true;
         }
 
+        // Get game info by id
         public async Task<Game?> GetByIdAsync(int gameId)
         {
             const string sql = "SELECT GameID, CreatedAt, EndedAt, Status, WinnerGamePlayerID FROM dbo.Game WHERE GameID=@GameID;";
@@ -167,6 +171,7 @@ UPDATE dbo.Game SET Status = 'InProgress' WHERE GameID = @g;", conn);
             };
         }
 
+        // Get players for a specific game
         public async Task<List<PlayerVm>> GetPlayersAsync(int gameId)
         {
             const string sql = @"
@@ -195,6 +200,7 @@ ORDER BY gp.PlayerOrder;";
             return list;
         }
 
+        // Get GamePlayerID for a user in a specific game
         public async Task<int?> GetGamePlayerIdAsync(int gameId, int userId)
         {
             using var conn = _factory.Create();
@@ -206,6 +212,7 @@ ORDER BY gp.PlayerOrder;";
             return val == null ? (int?)null : Convert.ToInt32(val);
         }
 
+        // Mark the game as completed and set the winner
         public async Task CompleteGameAsync(int gameId, int? winnerGamePlayerId)
         {
             using var conn = _factory.Create();
@@ -236,6 +243,7 @@ WHERE GameID=@g;", conn);
             }
         }
 
+        // Update game status (like Waiting, InProgress, Completed)
         public async Task SetStatusAsync(int gameId, string status)
         {
             using var conn = _factory.Create();
@@ -246,7 +254,7 @@ WHERE GameID=@g;", conn);
             await cmd.ExecuteNonQueryAsync();
         }
 
-        // NEW: delete a game and all its data (tiles, moves, players), in a transaction
+        // Delete a game and all its data (moves, tiles, players)
         public async Task DeleteGameAsync(int gameId)
         {
             using var conn = _factory.Create();
@@ -254,8 +262,7 @@ WHERE GameID=@g;", conn);
             using var tran = conn.BeginTransaction();
             try
             {
-                // If you have ON DELETE CASCADE, you can just delete Game.
-                // Otherwise, delete children explicitly in correct order:
+                // Remove all related data first
                 var delMoves = new SqlCommand("DELETE FROM dbo.Move WHERE GameID=@g;", conn, tran);
                 delMoves.Parameters.AddWithValue("@g", gameId);
                 await delMoves.ExecuteNonQueryAsync();

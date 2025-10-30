@@ -24,9 +24,7 @@ namespace MemoryGame.Controllers
             _moves = moves;
         }
 
-        // ================================
-        // LOBBY
-        // ================================
+        // LOBBY (list games)
         [HttpGet]
         public async Task<IActionResult> Lobby()
         {
@@ -51,7 +49,7 @@ namespace MemoryGame.Controllers
             return View(rows);
         }
 
-        // GET /Game/LobbyState  (for auto-refresh in lobby)
+        // Lobby auto-refresh (JSON)
         [HttpGet]
         public async Task<IActionResult> LobbyState()
         {
@@ -101,7 +99,7 @@ namespace MemoryGame.Controllers
             return RedirectToAction("Play", new { id });
         }
 
-        // Owner-only delete
+        // Delete a game (only owner)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)
@@ -121,9 +119,7 @@ namespace MemoryGame.Controllers
             return RedirectToAction("Lobby");
         }
 
-        // ================================
-        // HELPERS
-        // ================================
+        // Helper: who should play now?
         private async Task<int?> GetCurrentTurnUserIdAsync(int gameId, List<PlayerVm> players)
         {
             var last = await _moves.GetLastMoveAsync(gameId);
@@ -136,9 +132,7 @@ namespace MemoryGame.Controllers
             return other?.UserID;
         }
 
-        // ================================
-        // PLAY (GET)
-        // ================================
+        // PLAY (page)
         [HttpGet]
         public async Task<IActionResult> Play(int id)
         {
@@ -149,13 +143,13 @@ namespace MemoryGame.Controllers
                 return RedirectToAction("Lobby");
             }
 
-            // Seed data if needed
+            // Make sure we have cards/tiles
             if (await _cards.CountAsync() == 0) await _cards.SeedDefaultPairsAsync();
             if (!await _tiles.AnyForGameAsync(id)) await _tiles.CreateForGameAsync(id, 16);
 
             var tiles = await _tiles.GetByGameAsync(id);
 
-            // selection (two-click flow)
+            // First selection (two clicks)
             var sel1Key = $"sel1_{id}";
             var sel1 = HttpContext.Session.GetInt32(sel1Key);
 
@@ -181,7 +175,7 @@ namespace MemoryGame.Controllers
             ViewBag.MatchedTiles = matchedTiles;
             ViewBag.RemainingPairs = remainingPairs;
 
-            // if finished, compute winner and mark completed
+            // If finished, pick winner and close game
             if (remainingPairs == 0 && game.Status != "Completed")
             {
                 int score1 = players.Count > 0 && scores.ContainsKey(players[0].UserID) ? scores[players[0].UserID] : 0;
@@ -195,7 +189,7 @@ namespace MemoryGame.Controllers
                 game = await _games.GetByIdAsync(id);
             }
 
-            // turn + flags
+            // Turn info
             int? currentTurnUserId = null;
             if (game.Status == "InProgress" || game.Status == "Waiting")
                 currentTurnUserId = await GetCurrentTurnUserIdAsync(id, players);
@@ -206,13 +200,13 @@ namespace MemoryGame.Controllers
             ViewBag.IsMyTurn = (me.HasValue && currentTurnUserId.HasValue && me.Value == currentTurnUserId.Value);
             ViewBag.GameCompleted = (game.Status == "Completed");
 
-            // Solo-mode failsafe
+            // If only one player, let them play
             if ((players?.Count ?? 0) == 1 && me.HasValue && me.Value == players[0].UserID && !(bool)ViewBag.GameCompleted)
             {
                 ViewBag.IsMyTurn = true;
             }
 
-            // winner (for display)
+            // Winner name for display
             if (game.Status == "Completed")
             {
                 string winnerName = "Tie";
@@ -224,20 +218,18 @@ namespace MemoryGame.Controllers
                 ViewBag.WinnerName = winnerName;
             }
 
-            // expose last turn number for polling
+            // Last turn number (used by polling)
             var last = await _moves.GetLastMoveAsync(id);
             ViewBag.LastTurn = last?.TurnNumber ?? 0;
 
-            // keep last pair through one render
+            // Keep last pair for one reload
             var lastPair = TempData["LastPair"];
             if (lastPair != null) TempData["LastPair"] = lastPair;
 
             return View(tiles);
         }
 
-        // ================================
-        // FLIP (POST)
-        // ================================
+        // FLIP (handle a click on a tile)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Flip(int id, int tileId)
@@ -252,7 +244,7 @@ namespace MemoryGame.Controllers
             var players = await _games.GetPlayersAsync(id);
             if (players.Count < 1) { TempData["Error"] = "No players in this game."; return RedirectToAction("Play", new { id }); }
 
-            // Enforce turn
+            // Check turn
             var currentTurnUserId = await GetCurrentTurnUserIdAsync(id, players);
             if (currentTurnUserId.HasValue && me.Value != currentTurnUserId.Value)
             {
@@ -263,6 +255,7 @@ namespace MemoryGame.Controllers
             var sel1Key = $"sel1_{id}";
             var sel1 = HttpContext.Session.GetInt32(sel1Key);
 
+            // First click
             if (sel1 is null)
             {
                 HttpContext.Session.SetInt32(sel1Key, tileId);
@@ -270,6 +263,7 @@ namespace MemoryGame.Controllers
             }
             else
             {
+                // Second click
                 var first = await _tiles.GetAsync(sel1.Value);
                 var second = await _tiles.GetAsync(tileId);
                 if (first == null || second == null || first.GameID != id || second.GameID != id)
@@ -295,9 +289,7 @@ namespace MemoryGame.Controllers
             }
         }
 
-        // ================================
-        // STATE (JSON for polling) — now includes playerCount
-        // ================================
+        // STATE (JSON for polling) — includes playerCount
         [HttpGet]
         public async Task<IActionResult> State(int id)
         {
@@ -332,10 +324,10 @@ namespace MemoryGame.Controllers
                 currentTurnUserId,
                 lastTurn,
                 winnerName,
-                playerCount   // ← NEW
+                playerCount
             });
         }
 
-        // Rematch endpoint removed
+        // Rematch endpoint removed in final version
     }
 }
