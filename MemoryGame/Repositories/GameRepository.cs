@@ -8,7 +8,7 @@ namespace MemoryGame.Repositories
     {
         Task<IEnumerable<Game>> GetActiveGamesAsync();
         Task<int> CreateGameAsync(int userId);
-        Task<int> CreateGameWithPlayersAsync(int user1Id, int user2Id); // NEW
+        Task<int> CreateGameWithPlayersAsync(int user1Id, int user2Id);
         Task<bool> JoinGameAsync(int gameId, int userId);
         Task<Game?> GetByIdAsync(int gameId);
 
@@ -16,6 +16,8 @@ namespace MemoryGame.Repositories
         Task<int?> GetGamePlayerIdAsync(int gameId, int userId);
         Task CompleteGameAsync(int gameId, int? winnerGamePlayerId);
         Task SetStatusAsync(int gameId, string status);
+
+        Task DeleteGameAsync(int gameId); // NEW
     }
 
     public class GameRepository : IGameRepository
@@ -76,7 +78,7 @@ namespace MemoryGame.Repositories
             }
         }
 
-        // NEW: create a game immediately with two players and mark InProgress
+        // create an immediately in-progress game with two players (for Rematch)
         public async Task<int> CreateGameWithPlayersAsync(int user1Id, int user2Id)
         {
             using var conn = _factory.Create();
@@ -115,23 +117,32 @@ namespace MemoryGame.Repositories
 
         public async Task<bool> JoinGameAsync(int gameId, int userId)
         {
-            const string sqlCheck = @"SELECT COUNT(*) FROM dbo.GamePlayer WHERE GameID = @GameID;";
-
             using var conn = _factory.Create();
             await conn.OpenAsync();
 
-            var cmdCount = new SqlCommand(sqlCheck, conn);
-            cmdCount.Parameters.AddWithValue("@GameID", gameId);
-            int count = (int)(await cmdCount.ExecuteScalarAsync() ?? 0);
+            // Already in this game? -> no-op false
+            var cmdAlready = new SqlCommand(
+                "SELECT COUNT(*) FROM dbo.GamePlayer WHERE GameID=@g AND UserID=@u;",
+                conn);
+            cmdAlready.Parameters.AddWithValue("@g", gameId);
+            cmdAlready.Parameters.AddWithValue("@u", userId);
+            int already = Convert.ToInt32(await cmdAlready.ExecuteScalarAsync() ?? 0);
+            if (already > 0) return false;
+
+            // Full?
+            var cmdCount = new SqlCommand(
+                "SELECT COUNT(*) FROM dbo.GamePlayer WHERE GameID=@g;",
+                conn);
+            cmdCount.Parameters.AddWithValue("@g", gameId);
+            int count = Convert.ToInt32(await cmdCount.ExecuteScalarAsync() ?? 0);
             if (count >= 2) return false;
 
-            const string sqlInsert = @"
-INSERT INTO dbo.GamePlayer (GameID, UserID, PlayerOrder) VALUES (@GameID, @UserID, 2);
-UPDATE dbo.Game SET Status = 'InProgress' WHERE GameID = @GameID;";
-
-            var cmd = new SqlCommand(sqlInsert, conn);
-            cmd.Parameters.AddWithValue("@GameID", gameId);
-            cmd.Parameters.AddWithValue("@UserID", userId);
+            // Insert as player 2 and set InProgress
+            var cmd = new SqlCommand(@"
+INSERT INTO dbo.GamePlayer (GameID, UserID, PlayerOrder) VALUES (@g, @u, 2);
+UPDATE dbo.Game SET Status = 'InProgress' WHERE GameID = @g;", conn);
+            cmd.Parameters.AddWithValue("@g", gameId);
+            cmd.Parameters.AddWithValue("@u", userId);
             await cmd.ExecuteNonQueryAsync();
 
             return true;
@@ -233,6 +244,41 @@ WHERE GameID=@g;", conn);
             cmd.Parameters.AddWithValue("@s", status);
             cmd.Parameters.AddWithValue("@g", gameId);
             await cmd.ExecuteNonQueryAsync();
+        }
+
+        // NEW: delete a game and all its data (tiles, moves, players), in a transaction
+        public async Task DeleteGameAsync(int gameId)
+        {
+            using var conn = _factory.Create();
+            await conn.OpenAsync();
+            using var tran = conn.BeginTransaction();
+            try
+            {
+                // If you have ON DELETE CASCADE, you can just delete Game.
+                // Otherwise, delete children explicitly in correct order:
+                var delMoves = new SqlCommand("DELETE FROM dbo.Move WHERE GameID=@g;", conn, tran);
+                delMoves.Parameters.AddWithValue("@g", gameId);
+                await delMoves.ExecuteNonQueryAsync();
+
+                var delTiles = new SqlCommand("DELETE FROM dbo.Tile WHERE GameID=@g;", conn, tran);
+                delTiles.Parameters.AddWithValue("@g", gameId);
+                await delTiles.ExecuteNonQueryAsync();
+
+                var delPlayers = new SqlCommand("DELETE FROM dbo.GamePlayer WHERE GameID=@g;", conn, tran);
+                delPlayers.Parameters.AddWithValue("@g", gameId);
+                await delPlayers.ExecuteNonQueryAsync();
+
+                var delGame = new SqlCommand("DELETE FROM dbo.Game WHERE GameID=@g;", conn, tran);
+                delGame.Parameters.AddWithValue("@g", gameId);
+                await delGame.ExecuteNonQueryAsync();
+
+                await tran.CommitAsync();
+            }
+            catch
+            {
+                await tran.RollbackAsync();
+                throw;
+            }
         }
     }
 }
