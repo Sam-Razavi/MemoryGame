@@ -59,6 +59,8 @@ When all tiles are matched, the system automatically determines the winner.
 <img width="1027" height="1066" alt="image" src="https://github.com/user-attachments/assets/38803ca6-9f54-4209-8caf-fd221eb7daf6" />
 <img width="1079" height="1081" alt="image" src="https://github.com/user-attachments/assets/88c7b8bd-6d95-4992-96ae-f12245ee4355" />
 
+## Deployed on
+https://memorygame-sam-b4dbbha5anguhxbt.germanywestcentral-01.azurewebsites.net/
 
 
 
