@@ -19,11 +19,5 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore dependencies
-        run: dotnet restore MemoryGame.sln
-
-      - name: Build
-        run: dotnet build MemoryGame.sln --no-restore --configuration Release
-
       - name: Run tests
-        run: dotnet test MemoryGame.Tests/MemoryGame.Tests.csproj --no-build --configuration Release --verbosity normal
+        run: dotnet test MemoryGame.Tests/MemoryGame.Tests.csproj --verbosity normal
