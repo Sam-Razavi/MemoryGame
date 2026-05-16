@@ -1,6 +1,6 @@
 # 🎮 MemoryGame – Databasteknik och Webbaserade System
 
-[![CI](https://github.com/Sam-Razavi/MemoryGame/actions/workflows/ci.yml/badge.svg)](https://github.com/Sam-Razavi/MemoryGame/actions/workflows/ci.yml)
+[![CI](https://github.com/Sam-Razavi/MemoryGame/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Sam-Razavi/MemoryGame/actions/workflows/ci.yml)
 
 A turn-based multiplayer **Memory Game** built with **ASP.NET Core MVC** and **SQL Server** as part of the course  
 📘 *Databasteknik och webbaserade system* at IT-Högskolan Sverige AB.
