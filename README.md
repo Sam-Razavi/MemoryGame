@@ -177,7 +177,29 @@ These tests cover the pure-logic classes (`PasswordHasher`, model POCOs) that ha
 
 ---
 
-## 🖼️ Screenshots
+## 🖼️ Screenshots & Demos
+
+### Game Lobby
+Players can create, join, or manage games from the lobby.
+
+![Game Lobby](docs/gifs/lobby.png)
+
+### Gameplay in Action
+Watch a full turn: flipping tiles, finding matches, and tracking scores.
+
+![Gameplay Demo](docs/gifs/gameplay.gif)
+
+### Card Matching Close-up
+Flip cards to find matching pairs — matched tiles turn green!
+
+![Card Flip Animation](docs/gifs/card-flip.gif)
+
+### Completed Game
+Final scoreboard with winner announcement and full move history.
+
+![Game Completed](docs/gifs/game-completed.png)
+
+### Additional Screenshots
 <img width="1134" height="710" alt="image" src="https://github.com/user-attachments/assets/af75c6db-cae5-493f-948b-349cf5943e87" />
 <img width="1092" height="1005" alt="image" src="https://github.com/user-attachments/assets/3cd9cf71-9317-444b-897c-2e17e0774cca" />
 <img width="1027" height="1066" alt="image" src="https://github.com/user-attachments/assets/38803ca6-9f54-4209-8caf-fd221eb7daf6" />
