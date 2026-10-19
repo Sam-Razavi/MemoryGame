@@ -1,7 +1,8 @@
 namespace MemoryGame.Helpers
 {
     // Picks artwork for a card face from its name: an emoji when we know one,
-    // otherwise a monogram. Hue is stable per name so both cards of a pair match.
+    // otherwise a monogram. Hue is stable per name, so both cards of a pair get
+    // the same suit colour.
     public static class CardArt
     {
         private static readonly Dictionary<string, string> Emojis = new(StringComparer.OrdinalIgnoreCase)

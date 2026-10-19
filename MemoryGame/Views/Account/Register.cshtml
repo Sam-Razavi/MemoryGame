@@ -6,38 +6,26 @@
 }
 
 <div class="auth">
-    <div class="panel auth-card">
-        <div class="auth-head">
-            <partial name="_BrandMark" />
-            <h1>Create your account</h1>
-            <p>Pick a name your opponents will see.</p>
+    <h1>Sign up</h1>
+    <p class="muted">Your username is what the other player sees.</p>
+
+    <partial name="_AuthErrors" />
+
+    <form method="post">
+        <div class="field">
+            <label class="label" for="username">Username</label>
+            <input class="input" id="username" name="username" value="@username" autocomplete="username" required autofocus />
         </div>
-
-        <partial name="_AuthErrors" />
-
-        <form method="post">
-            <div class="field">
-                <label class="label" for="username">Username</label>
-                <input class="input" id="username" name="username" value="@username"
-                       autocomplete="username" placeholder="e.g. card_shark" required autofocus />
-            </div>
-            <div class="field">
-                <label class="label" for="email">Email <span class="text-dim">(optional)</span></label>
-                <input class="input" id="email" name="email" type="email" value="@email"
-                       autocomplete="email" placeholder="you@example.com" />
-            </div>
-            <div class="field">
-                <label class="label" for="password">Password</label>
-                <input class="input" id="password" name="password" type="password"
-                       autocomplete="new-password" placeholder="••••••••" required />
-            </div>
-            <button type="submit" class="btn btn-primary btn-lg btn-block">
-                @Icons.Get("user-plus", 18) Create account
-            </button>
-        </form>
-
-        <div class="auth-foot">
-            Already have an account? <a asp-action="Login">Log in</a>
+        <div class="field">
+            <label class="label" for="email">Email <span class="faint">(optional)</span></label>
+            <input class="input" id="email" name="email" type="email" value="@email" autocomplete="email" />
         </div>
-    </div>
+        <div class="field">
+            <label class="label" for="password">Password</label>
+            <input class="input" id="password" name="password" type="password" autocomplete="new-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Create account</button>
+    </form>
+
+    <p class="auth-foot">Already have an account? <a asp-action="Login">Log in</a></p>
 </div>

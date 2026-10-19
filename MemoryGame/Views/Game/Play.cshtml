@@ -1,4 +1,4 @@
-﻿@using System.Linq
+@using System.Linq
 @using System.Collections.Generic
 @using System.Globalization
 @using MemoryGame.Models
@@ -15,14 +15,13 @@
 
     int totalTiles = ViewBag.TotalTiles is int tt ? tt : Model.Count;
     int matchedTiles = ViewBag.MatchedTiles is int mt ? mt : Model.Count(t => t.IsMatched);
-    int remainingPairs = ViewBag.RemainingPairs is int rp ? rp : (totalTiles - matchedTiles) / 2;
     int totalPairs = totalTiles / 2;
     int foundPairs = matchedTiles / 2;
     int progressPct = totalTiles == 0 ? 0 : matchedTiles * 100 / totalTiles;
 
     int lastTurn = ViewBag.LastTurn is int lt ? lt : 0;
     string statusText = (ViewBag.Status as string) ?? "Waiting";
-    string statusLabel = statusText == "InProgress" ? "In progress" : statusText;
+    string statusLabel = statusText == "InProgress" ? "In progress" : statusText == "Completed" ? "Finished" : statusText;
 
     var players = ViewBag.Players as List<PlayerVm> ?? new List<PlayerVm>();
     var scores = ViewBag.Scores as IDictionary<int, int> ?? new Dictionary<int, int>();
@@ -31,8 +30,10 @@
     int? currentTurnUserId = ViewBag.CurrentTurnUserId as int?;
     string? winnerName = ViewBag.WinnerName as string;
 
+    int ScoreOf(PlayerVm p) => scores.ContainsKey(p.UserID) ? scores[p.UserID] : 0;
     var currentPlayer = currentTurnUserId.HasValue ? players.FirstOrDefault(p => p.UserID == currentTurnUserId.Value) : null;
-    bool iWon = gameCompleted && me.HasValue && players.Any(p => p.UserID == me.Value && p.Username == winnerName);
+    var meAsPlayer = me.HasValue ? players.FirstOrDefault(p => p.UserID == me.Value) : null;
+    string finalScore = string.Join("–", players.OrderByDescending(ScoreOf).Select(ScoreOf));
 
     var lastA = -1; var lastB = -1; var lastMatch = false;
     if (TempData["LastPair"] is string lp)
@@ -49,235 +50,168 @@
     bool canFlip = !gameCompleted && isMyTurn;
 }
 
-<div class="play-top">
-    <div class="play-title">
-        <a asp-action="Lobby" class="btn btn-icon" title="Back to lobby" aria-label="Back to lobby">@Icons.Get("arrow-left", 16)</a>
-        <h1>Game <span class="text-dim">#</span>@gameId</h1>
-        <span class="pill pill-@statusText.ToLowerInvariant()">@statusLabel</span>
-    </div>
-    @if (!gameCompleted)
-    {
-        <span class="live">Live sync</span>
-    }
+<a asp-action="Lobby" class="back">&larr; Lobby</a>
+<div class="play-title">
+    <h1>Game @gameId</h1>
+    <span class="status status-@statusText.ToLowerInvariant()">@statusLabel</span>
 </div>
 
 <partial name="_Alerts" />
 
 <div class="play-layout">
-    <div>
-        @if (gameCompleted)
-        {
-            <div class="panel victory">
-                <div class="confetti" aria-hidden="true">
-                    @for (int i = 0; i < 36; i++)
-                    {
-                        var style = string.Format(CultureInfo.InvariantCulture,
-                            "--x:{0}%;--c:{1};--t:{2:0.00}s;--d:{3:0.00}s",
-                            (i * 37) % 100, (i * 47) % 360, 2.4 + (i % 5) * 0.35, (i * 0.13) % 2.5);
-                        <i style="@style"></i>
-                    }
-                </div>
-                <div class="victory-main">
-                    <div class="victory-icon">@Icons.Get("trophy", 26)</div>
-                    <div>
-                        @if (winnerName == null || winnerName == "Tie")
+    <div class="felt">
+        <div class="board @(canFlip ? "is-playable" : "") @(gameCompleted ? "is-over" : "")"
+             data-game-id="@gameId"
+             data-me="@me"
+             data-turn="@currentTurnUserId"
+             data-last="@lastTurn"
+             data-status="@ViewBag.Status"
+             data-players="@players.Count">
+            @foreach (var t in Model)
+            {
+                bool isSelected = sel1.HasValue && sel1.Value == t.TileID;
+                bool isLastPicked = (t.TileID == lastA || t.TileID == lastB);
+                bool showFace = t.IsMatched || isSelected || isLastPicked;
+
+                var classes = "tile";
+                if (t.IsMatched) classes += " tile-matched";
+                else if (isSelected) classes += " tile-selected";
+                if (isLastPicked) classes += lastMatch ? " last-match" : " last-miss";
+                if (isSelected || isLastPicked) classes += " just-revealed";
+                if (showFace) classes += " flipped";
+
+                <div class="@classes">
+                    <div class="tile-inner">
+                        <div class="tile-side tile-back">
+                            @if (!showFace)
+                            {
+                                if (canFlip)
+                                {
+                                    <form asp-action="Flip" method="post" class="tile-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@gameId" />
+                                        <input type="hidden" name="tileId" value="@t.TileID" />
+                                        <button type="submit" class="tile-btn" aria-label="Flip card @(t.Position + 1)"></button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <button type="button" class="tile-btn" disabled aria-label="Card @(t.Position + 1)"></button>
+                                }
+                            }
+                        </div>
+                        @* Face-down cards don't render their face, so the page source doesn't give the board away *@
+                        @if (showFace)
                         {
-                            <h2>It's a tie!</h2>
-                            <p>Evenly matched — all @totalPairs pairs found.</p>
-                        }
-                        else
-                        {
-                            <h2>@(iWon ? "You win!" : $"{winnerName} wins!")</h2>
-                            <p>All @totalPairs pairs found. Great game.</p>
+                            <partial name="_CardFace" model="t.CardName" />
                         }
                     </div>
                 </div>
+            }
+        </div>
+    </div>
+
+    <aside class="play-side">
+        @if (gameCompleted)
+        {
+            <div class="panel turn-box is-over">
+                @if (winnerName == null || winnerName == "Tie")
+                {
+                    <p class="turn-main">It's a draw, @finalScore</p>
+                }
+                else if (meAsPlayer != null && meAsPlayer.Username == winnerName)
+                {
+                    <p class="turn-main">You won, @finalScore</p>
+                }
+                else
+                {
+                    <p class="turn-main">@winnerName won, @finalScore</p>
+                }
+                <p class="turn-sub">All @totalPairs pairs have been found.</p>
                 <form asp-action="Create" method="post">
                     @Html.AntiForgeryToken()
-                    <button class="btn btn-primary">@Icons.Get("plus", 16) Start new game</button>
+                    <button class="btn btn-primary btn-sm">Start a new game</button>
                 </form>
             </div>
         }
         else if (isMyTurn)
         {
-            <div class="banner banner-turn" role="status">
-                <div class="banner-icon">@Icons.Get("sparkles", 18)</div>
-                <div>
-                    <strong>Your turn</strong>
-                    <span>
-                        @if (sel1.HasValue)
-                        {
-                            @:Pick one more card to complete the pair.
-                        }
-                        else if (players.Count < 2)
-                        {
-                            @:Waiting for an opponent to join — you can start flipping meanwhile.
-                        }
-                        else
-                        {
-                            @:Flip two cards. Find a pair and you go again.
-                        }
-                    </span>
-                </div>
+            <div class="panel turn-box is-you" role="status">
+                <p class="turn-main">Your turn</p>
+                <p class="turn-sub">
+                    @if (sel1.HasValue)
+                    {
+                        @:Now pick a second card.
+                    }
+                    else if (players.Count < 2)
+                    {
+                        @:Nobody has joined yet, but you can start flipping.
+                    }
+                    else
+                    {
+                        @:Pick two cards. A pair means you go again.
+                    }
+                </p>
             </div>
         }
         else
         {
-            <div class="banner banner-wait" role="status">
-                <div class="banner-icon">@Icons.Get("clock", 18)</div>
-                <div>
-                    @if (currentPlayer != null)
-                    {
-                        <strong>Waiting for @currentPlayer.Username</strong>
-                    }
-                    else
-                    {
-                        <strong>Waiting for players…</strong>
-                    }
-                    <span>The board updates automatically when it's your turn.</span>
-                </div>
+            <div class="panel turn-box" role="status">
+                <p class="turn-main">@(currentPlayer != null ? $"{currentPlayer.Username}'s turn" : "Waiting for players")</p>
+                <p class="turn-sub">This page updates when it's your move.</p>
             </div>
         }
 
-        <div class="progress-row">
-            <span>Pairs found</span>
-            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="@totalPairs" aria-valuenow="@foundPairs">
-                <span style="width:@progressPct%"></span>
-            </div>
-            <span class="mono"><strong>@foundPairs</strong> / @totalPairs</span>
-        </div>
-
-        <div class="panel board-wrap">
-            <div class="board @(canFlip ? "is-playable" : "is-locked")"
-                 data-game-id="@gameId"
-                 data-me="@me"
-                 data-turn="@currentTurnUserId"
-                 data-last="@lastTurn"
-                 data-status="@ViewBag.Status"
-                 data-players="@players.Count">
-                @foreach (var t in Model)
-                {
-                    bool isSelected = sel1.HasValue && sel1.Value == t.TileID;
-                    bool isLastPicked = (t.TileID == lastA || t.TileID == lastB);
-                    bool showFace = t.IsMatched || isSelected || isLastPicked;
-
-                    var classes = "tile";
-                    if (t.IsMatched) classes += " tile-matched";
-                    else if (isSelected) classes += " tile-selected";
-                    if (isLastPicked) classes += lastMatch ? " last-match" : " last-miss";
-                    if (isSelected || isLastPicked) classes += " just-revealed";
-                    if (showFace) classes += " flipped";
-
-                    <div class="@classes" style="--h:@CardArt.Hue(t.CardName)">
-                        <div class="tile-inner">
-                            <div class="tile-side tile-back">
-                                <partial name="_BrandMark" />
-                                @if (!showFace)
-                                {
-                                    if (canFlip)
-                                    {
-                                        <form asp-action="Flip" method="post" class="tile-form">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="id" value="@gameId" />
-                                            <input type="hidden" name="tileId" value="@t.TileID" />
-                                            <button type="submit" class="tile-btn" aria-label="Flip card @(t.Position + 1)"></button>
-                                        </form>
-                                    }
-                                    else
-                                    {
-                                        <button type="button" class="tile-btn" disabled aria-label="Card @(t.Position + 1)"></button>
-                                    }
-                                }
-                            </div>
-                            <partial name="_CardFace" model="t.CardName" />
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-
-    <aside class="play-side">
         <div class="panel">
-            <div class="panel-header">
-                <div class="panel-title">@Icons.Get("users", 16) Players</div>
-                <span class="panel-meta">@remainingPairs pairs left</span>
-            </div>
-            <div class="scoreboard">
-                @foreach (var p in players)
-                {
-                    var score = scores.ContainsKey(p.UserID) ? scores[p.UserID] : 0;
-                    bool turn = currentTurnUserId.HasValue && currentTurnUserId.Value == p.UserID && !gameCompleted;
-                    bool winner = gameCompleted && p.Username == winnerName;
-                    bool isMe = me.HasValue && me.Value == p.UserID;
-
-                    <div class="player @(turn ? "is-turn" : "") @(winner ? "is-winner" : "")">
-                        <span class="avatar avatar-lg" style="--h:@CardArt.Hue(p.Username)">@CardArt.Monogram(p.Username)</span>
-                        <div class="player-info">
-                            <div class="player-name">@p.Username@(isMe ? " (you)" : "")</div>
-                            <div class="player-meta">
-                                @if (winner)
-                                {
-                                    @:Winner
-                                }
-                                else if (turn)
-                                {
-                                    <span class="turn-dot"></span>@:Playing now
-                                }
-                                else
-                                {
-                                    @:Player @p.PlayerOrder
-                                }
-                            </div>
-                        </div>
-                        <div class="player-score" title="Pairs found">@score</div>
-                    </div>
-                }
-                @for (int i = players.Count; i < 2; i++)
-                {
-                    <div class="player is-empty">
-                        <span class="avatar avatar-lg avatar-empty">?</span>
-                        <div class="player-info">
-                            <div class="player-name">Open seat</div>
-                            <div class="player-meta">Waiting for opponent…</div>
-                        </div>
-                    </div>
-                }
+            <h2 class="panel-h">Score</h2>
+            @foreach (var p in players)
+            {
+                bool turn = currentTurnUserId.HasValue && currentTurnUserId.Value == p.UserID && !gameCompleted;
+                bool isMe = me.HasValue && me.Value == p.UserID;
+                <div class="score-row">
+                    <span class="turn-marker" title="@(turn ? "Playing now" : "")">@(turn ? "▶" : "")</span>
+                    <span class="score-name">@p.Username @if (isMe) { <span class="faint">(you)</span> }</span>
+                    <span class="score-val">@ScoreOf(p)</span>
+                </div>
+            }
+            @for (int i = players.Count; i < 2; i++)
+            {
+                <div class="score-row is-empty">
+                    <span class="turn-marker"></span>
+                    <span class="score-name">Waiting for an opponent</span>
+                </div>
+            }
+            <div class="score-foot">
+                @foundPairs of @totalPairs pairs found
+                <div class="bar"><span style="width:@progressPct%"></span></div>
             </div>
         </div>
 
         <div class="panel">
-            <div class="panel-header">
-                <div class="panel-title">@Icons.Get("history", 16) Moves</div>
-                <span class="panel-meta">@history.Count total</span>
-            </div>
+            <h2 class="panel-h">Moves</h2>
             @if (history.Any())
             {
-                <ol class="timeline">
+                <ol class="moves">
                     @foreach (var m in Enumerable.Reverse(history))
                     {
                         <li>
-                            <span class="timeline-mark @(m.IsMatch ? "hit" : "miss")">@Icons.Get(m.IsMatch ? "check" : "x", 14)</span>
-                            <div class="timeline-body">
-                                <strong>@m.Username</strong> @(m.IsMatch ? "found a pair" : "missed")
-                                <div class="timeline-time" title="@m.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)">
-                                    @m.CreatedAt.ToString("HH:mm:ss", CultureInfo.InvariantCulture)
-                                </div>
-                            </div>
-                            <span class="timeline-turn">#@m.TurnNumber</span>
+                            <span class="n">@m.TurnNumber</span>
+                            <span class="who">@m.Username</span>
+                            <span class="@(m.IsMatch ? "hit" : "miss")">@(m.IsMatch ? "pair" : "miss")</span>
+                            <time datetime="@m.CreatedAt.ToString("s", CultureInfo.InvariantCulture)">@m.CreatedAt.ToString("HH:mm", CultureInfo.InvariantCulture)</time>
                         </li>
                     }
                 </ol>
             }
             else
             {
-                <div class="timeline-empty">No moves yet — the first flip is yours to make.</div>
+                <p class="moves-empty">No moves yet.</p>
             }
         </div>
     </aside>
 </div>
 
-<div id="joinToast" class="toast" role="status">@Icons.Get("check", 18) An opponent joined. Loading…</div>
+<div id="joinToast" class="toast" role="status">Your opponent joined. Reloading&hellip;</div>
 
 @section Scripts {
     <script>

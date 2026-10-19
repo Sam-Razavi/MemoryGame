@@ -3,11 +3,11 @@
     ViewData["Title"] = "Edit card";
 }
 
-<div class="page-header">
+<a asp-action="Index" class="back">&larr; Deck</a>
+<div class="page-head">
     <div>
-        <a asp-action="Index" class="eyebrow">@Icons.Get("arrow-left", 14) Card library</a>
-        <h1 class="page-title">Edit card <span class="text-dim">#@Model.CardID</span></h1>
-        <p class="page-subtitle">Changes apply to new games. Games in progress keep their cards.</p>
+        <h1>Edit card #@Model.CardID</h1>
+        <p class="muted">Changes only affect games created after you save.</p>
     </div>
 </div>
 

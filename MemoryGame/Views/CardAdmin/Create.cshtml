@@ -3,11 +3,11 @@
     ViewData["Title"] = "New card";
 }
 
-<div class="page-header">
+<a asp-action="Index" class="back">&larr; Deck</a>
+<div class="page-head">
     <div>
-        <a asp-action="Index" class="eyebrow">@Icons.Get("arrow-left", 14) Card library</a>
-        <h1 class="page-title">New card</h1>
-        <p class="page-subtitle">Add a card to the deck. Remember to create its partner with the same pair key.</p>
+        <h1>New card</h1>
+        <p class="muted">Every card needs a partner, so add a second one with the same pair key.</p>
     </div>
 </div>
 

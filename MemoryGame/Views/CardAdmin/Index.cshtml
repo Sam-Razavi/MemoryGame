@@ -1,19 +1,15 @@
 @model IEnumerable<MemoryGame.Models.Card>
 @{
-    ViewData["Title"] = "Cards";
+    ViewData["Title"] = "Deck";
     var cards = Model?.ToList() ?? new List<MemoryGame.Models.Card>();
-    int pairCount = cards.Select(c => c.PairKey).Distinct().Count();
 }
 
-<div class="page-header">
+<div class="page-head">
     <div>
-        <div class="eyebrow">@Icons.Get("layers", 14) Card library</div>
-        <h1 class="page-title">Cards</h1>
-        <p class="page-subtitle">
-            @cards.Count cards across @pairCount pair@(pairCount == 1 ? "" : "s"). Cards that share a pair key match each other.
-        </p>
+        <h1>Deck</h1>
+        <p class="muted">@cards.Count cards. New games pick their cards from this list.</p>
     </div>
-    <a asp-action="Create" class="btn btn-primary btn-lg">@Icons.Get("plus", 18) New card</a>
+    <a asp-action="Create" class="btn btn-primary">Add card</a>
 </div>
 
 <partial name="_Alerts" />
@@ -21,46 +17,38 @@
 @if (!cards.Any())
 {
     <div class="panel empty">
-        <div class="empty-icon">@Icons.Get("layers", 28)</div>
-        <h3>No cards yet</h3>
-        <p>Create your first card to build the deck. Games will seed a default set if the deck is empty.</p>
-        <a asp-action="Create" class="btn btn-primary">@Icons.Get("plus", 16) Create a card</a>
+        The deck is empty. A default set of cards is added the first time someone starts a game,
+        or you can add your own.
     </div>
 }
 else
 {
-    <div class="panel table-wrap">
+    <div class="panel table-scroll">
         <table class="table">
             <thead>
                 <tr>
                     <th>Card</th>
                     <th>Pair key</th>
-                    <th>ID</th>
-                    <th><span class="sr-only">Actions</span></th>
+                    <th class="hide-sm">ID</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var c in cards)
                 {
-                    var emoji = CardArt.Emoji(c.Name);
                     <tr>
-                        <td>
-                            <div class="card-name">
-                                <span class="card-preview" style="--h:@CardArt.Hue(c.Name)">@(emoji ?? CardArt.Monogram(c.Name))</span>
-                                @c.Name
-                            </div>
-                        </td>
-                        <td><span class="chip">@c.PairKey</span></td>
-                        <td class="text-dim mono">#@c.CardID</td>
+                        <td><span class="mini-card">@(CardArt.Emoji(c.Name) ?? CardArt.Monogram(c.Name))</span>@c.Name</td>
+                        <td class="code">@c.PairKey</td>
+                        <td class="num faint hide-sm">@c.CardID</td>
                         <td>
                             <div class="actions">
-                                <a asp-action="Edit" asp-route-id="@c.CardID" class="btn btn-sm">@Icons.Get("pencil", 14) Edit</a>
+                                <a asp-action="Edit" asp-route-id="@c.CardID" class="link-btn">Edit</a>
                                 <form asp-action="Delete" method="post" class="inline-form">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@c.CardID" />
-                                    <button class="btn btn-danger btn-sm btn-icon" type="submit" title="Delete card" aria-label="Delete @c.Name"
+                                    <button class="link-btn danger" type="submit"
                                             onclick="return confirm('Delete card #@c.CardID (@c.Name)?');">
-                                        @Icons.Get("trash", 15)
+                                        Delete
                                     </button>
                                 </form>
                             </div>

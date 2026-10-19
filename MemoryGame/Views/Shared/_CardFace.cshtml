@@ -1,15 +1,19 @@
 @model string
 @{
     var emoji = CardArt.Emoji(Model);
+    var letter = CardArt.Monogram(Model);
+    var suit = CardArt.Hue(Model) % 2 == 0 ? "suit-red" : "suit-black";
 }
-<div class="tile-side tile-face">
+<div class="tile-side tile-face @suit">
+    <span class="corner tl">@letter</span>
     @if (emoji != null)
     {
         <span class="tile-art">@emoji</span>
     }
     else
     {
-        <span class="tile-monogram">@CardArt.Monogram(Model)</span>
+        <span class="tile-big">@letter</span>
     }
     <span class="tile-name">@Model</span>
+    <span class="corner br">@letter</span>
 </div>

@@ -3,15 +3,12 @@
     ViewData["Title"] = "Error";
 }
 
-<div class="panel empty" style="max-width:620px;margin:40px auto 0">
-    <div class="empty-icon" style="color:var(--danger)">@Icons.Get("alert", 28)</div>
-    <h3>Something went wrong</h3>
-    <p>An error occurred while processing your request.</p>
+<div class="auth">
+    <h1>Something went wrong</h1>
+    <p class="muted">The server couldn't finish that request. Try again, or go back to the <a asp-controller="Home" asp-action="Index">start page</a>.</p>
 
     @if (Model.ShowRequestId)
     {
-        <p class="hint">Request ID: <span class="chip">@Model.RequestId</span></p>
+        <p class="hint">Request ID: <span class="code">@Model.RequestId</span></p>
     }
-
-    <a asp-controller="Home" asp-action="Index" class="btn">@Icons.Get("arrow-left", 16) Back home</a>
 </div>
