@@ -1,15 +1,25 @@
-﻿@{
-    ViewData["Title"] = "Login";
+@{
+    ViewData["Title"] = "Log in";
+    var username = Context.Request.HasFormContentType ? Context.Request.Form["username"].ToString() : "";
 }
-<h2>Login</h2>
-<form method="post">
-    <div><label>Username</label><input name="username" /></div>
-    <div><label>Password</label><input name="password" type="password" /></div>
-    <button type="submit">Login</button>
-</form>
-<div style="color:red">
-    @foreach (var e in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-    {
-        <div>@e.ErrorMessage</div>
-    }
+
+<div class="auth">
+    <h1>Log in</h1>
+    <p class="muted">You need an account to create or join games.</p>
+
+    <partial name="_AuthErrors" />
+
+    <form method="post">
+        <div class="field">
+            <label class="label" for="username">Username</label>
+            <input class="input" id="username" name="username" value="@username" autocomplete="username" required autofocus />
+        </div>
+        <div class="field">
+            <label class="label" for="password">Password</label>
+            <input class="input" id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Log in</button>
+    </form>
+
+    <p class="auth-foot">No account yet? <a asp-action="Register">Sign up</a></p>
 </div>

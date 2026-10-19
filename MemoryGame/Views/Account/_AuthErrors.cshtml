@@ -1,0 +1,21 @@
+@{
+    var errors = ViewData.ModelState.Values.SelectMany(v => v.Errors).ToList();
+}
+@if (errors.Any())
+{
+    <div class="alert alert-error" role="alert">
+        @if (errors.Count == 1)
+        {
+            @errors[0].ErrorMessage
+        }
+        else
+        {
+            <ul>
+                @foreach (var e in errors)
+                {
+                    <li>@e.ErrorMessage</li>
+                }
+            </ul>
+        }
+    </div>
+}

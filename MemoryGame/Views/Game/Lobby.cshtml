@@ -1,110 +1,105 @@
-﻿@model List<MemoryGame.Models.LobbyRowVm>
+@model List<MemoryGame.Models.LobbyRowVm>
 @{
     ViewData["Title"] = "Lobby";
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+    int waiting = Model.Count(r => r.Status == "Waiting");
+    int playing = Model.Count(r => r.Status == "InProgress");
+    int finished = Model.Count(r => r.Status == "Completed");
+
+    string StatusLabel(string s) => s == "InProgress" ? "In progress" : s == "Completed" ? "Finished" : s;
 }
 
-<h2>Game Lobby</h2>
-
-@if (TempData["Info"] != null)
-{
-    <div class="alert alert-info">@TempData["Info"]</div>
-}
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-warning">@TempData["Error"]</div>
-}
-
-<form asp-action="Create" method="post" class="mb-3">
-    @Html.AntiForgeryToken()
-    <button type="submit" class="btn btn-primary">Create New Game</button>
-</form>
-
-<table class="table table-striped align-middle" id="lobbyTable">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Status</th>
-            <th>Players</th>
-            <th>Created</th>
-            <th style="width:320px;">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var r in Model)
+<div class="page-head">
+    <div>
+        <h1>Lobby</h1>
+        @if (Model.Any())
         {
-            <tr data-game-id="@r.GameID" data-player-count="@r.PlayerCount" data-status="@r.Status" data-i-am-in="@r.IsParticipant">
-                <td>@r.GameID</td>
-                <td>
-                    <span class="badge @(r.Status == "Completed" ? "bg-success" : r.Status == "InProgress" ? "bg-primary" : "bg-secondary")">
-                        @r.Status
-                    </span>
-                </td>
-                <td class="players-cell">@r.PlayerCount / 2</td>
-                <td>@r.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                <td>
-                    <div class="d-flex gap-2">
-                        @if (r.IsParticipant)
-                        {
-                            <a asp-action="Play" asp-route-id="@r.GameID" class="btn btn-sm btn-outline-primary">Play</a>
-                        }
-                        else
-                        {
-                            <a asp-action="Play" asp-route-id="@r.GameID" class="btn btn-sm btn-outline-secondary">View</a>
-                        }
-
-                        @if (!r.IsParticipant && r.PlayerCount < 2 && r.Status != "InProgress" && r.Status != "Completed")
-                        {
-                            <form asp-action="Join" method="post" class="m-0">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@r.GameID" />
-                                <button class="btn btn-sm btn-success">Join</button>
-                            </form>
-                        }
-                        else
-                        {
-                            <button class="btn btn-sm btn-success" disabled>Join</button>
-                        }
-
-                        @if (r.IsOwner)
-                        {
-                            <form asp-action="Delete" method="post" class="m-0"
-                                  onsubmit="return confirm('Delete game #@r.GameID ? This cannot be undone.');">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@r.GameID" />
-                                <button class="btn btn-sm btn-danger">Delete</button>
-                            </form>
-                        }
-                    </div>
-                </td>
-            </tr>
+            <p class="muted">@waiting waiting for a player, @playing in progress, @finished finished. The list refreshes by itself.</p>
         }
-    </tbody>
-</table>
+    </div>
+    <form asp-action="Create" method="post" class="inline-form">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-primary">New game</button>
+    </form>
+</div>
 
-<!-- Tiny toast -->
-<style>
-    #joinToast {
-        position: fixed;
-        left: 50%;
-        transform: translateX(-50%);
-        bottom: 16px;
-        background: #111;
-        color: #fff;
-        padding: 10px 14px;
-        border-radius: 8px;
-        display: none;
-        z-index: 9999;
-        box-shadow: 0 6px 20px rgba(0,0,0,.25);
-    }
+<partial name="_Alerts" />
 
-        #joinToast a {
-            color: #fff;
-            text-decoration: underline;
-        }
-</style>
-<div id="joinToast">
-    Opponent joined your game.
-    <a id="joinToastLink" href="#">Open</a>
+@if (!Model.Any())
+{
+    <div class="panel empty">
+        No games right now. Start one and your opponent can join it from this page.
+    </div>
+}
+else
+{
+    <div class="panel table-scroll">
+        <table class="table" id="lobbyTable">
+            <thead>
+                <tr>
+                    <th>Game</th>
+                    <th>Status</th>
+                    <th class="hide-sm">Players</th>
+                    <th class="hide-sm">Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr data-game-id="@r.GameID" data-player-count="@r.PlayerCount" data-status="@r.Status" data-i-am-in="@r.IsParticipant">
+                        <td class="num">
+                            #@r.GameID
+                            @if (r.IsParticipant)
+                            {
+                                <span class="yours">(yours)</span>
+                            }
+                        </td>
+                        <td><span class="status status-@r.Status.ToLowerInvariant()">@StatusLabel(r.Status)</span></td>
+                        <td class="num hide-sm">@r.PlayerCount of 2</td>
+                        <td class="num muted hide-sm">@r.CreatedAt.ToString("d MMM, HH:mm", inv)</td>
+                        <td>
+                            <div class="actions">
+                                @if (r.IsOwner)
+                                {
+                                    <form asp-action="Delete" method="post" class="inline-form"
+                                          onsubmit="return confirm('Delete game #@r.GameID? This cannot be undone.');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@r.GameID" />
+                                        <button class="link-btn danger">Delete</button>
+                                    </form>
+                                }
+
+                                @if (!r.IsParticipant && r.PlayerCount < 2 && r.Status != "InProgress" && r.Status != "Completed")
+                                {
+                                    <a asp-action="Play" asp-route-id="@r.GameID" class="link-btn hide-sm">Watch</a>
+                                    <form asp-action="Join" method="post" class="inline-form">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@r.GameID" />
+                                        <button class="btn btn-primary btn-sm">Join</button>
+                                    </form>
+                                }
+                                else if (r.IsParticipant)
+                                {
+                                    <a asp-action="Play" asp-route-id="@r.GameID" class="btn btn-sm">@(r.Status == "Completed" ? "Result" : "Play")</a>
+                                }
+                                else
+                                {
+                                    <a asp-action="Play" asp-route-id="@r.GameID" class="btn btn-sm">Watch</a>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div id="joinToast" class="toast" role="status">
+    Someone joined your game.
+    <a id="joinToastLink" href="#">Open it</a>
 </div>
 
 @section Scripts {
@@ -120,7 +115,7 @@
               const id = parseInt(tr.dataset.gameId, 10);
               const pc = parseInt(tr.dataset.playerCount, 10);
               const status = (tr.dataset.status || '').toString();
-              const iAmIn = (tr.dataset.iAmIn || 'false') === 'True' || (tr.dataset.iAmIn || 'false') === 'true';
+              const iAmIn = (tr.dataset.iAmIn || 'false').toLowerCase() === 'true';
               map[id] = { playerCount: pc, status, iAmIn };
             });
             return map;
@@ -167,7 +162,7 @@
 
               if (toastGameId) {
                 showToast(`/Game/Play/${toastGameId}`);
-                // Let user click; also refresh in a moment so table updates even if they don't click
+                // Let user click; also refresh in a moment so the table updates even if they don't click
                 setTimeout(()=>window.location.reload(), 1500);
                 return;
               }
@@ -187,7 +182,7 @@
             const t = document.getElementById('joinToast');
             const a = document.getElementById('joinToastLink');
             a.href = url;
-            t.style.display = 'inline-block';
+            t.style.display = 'flex';
           }
 
           // start polling

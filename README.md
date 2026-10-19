@@ -41,7 +41,7 @@ This was an **individual school project** that I designed and implemented end-to
 ✅ **Real-time updates** through AJAX polling  
 ✅ **Card Admin CRUD interface** (Create / Read / Update / Delete)  
 ✅ **SQL database integration** for all game entities  
-✅ **Clean Bootstrap 5 interface**  
+✅ **Card-table style UI** with flip animations that also works on phones  
 ✅ **Session-based authentication**
 
 ---
@@ -50,7 +50,7 @@ This was an **individual school project** that I designed and implemented end-to
 
 | Layer | Technology |
 |-------|-------------|
-| **Frontend** | HTML5, CSS3, Bootstrap 5, Razor Views |
+| **Frontend** | HTML5, CSS3, Razor Views |
 | **Backend** | ASP.NET Core MVC (C#) |
 | **Database** | Microsoft SQL Server |
 | **Data Access** | Custom Repository Layer (ADO.NET) |
@@ -177,33 +177,39 @@ These tests cover the pure-logic classes (`PasswordHasher`, model POCOs) that ha
 
 ---
 
-## 🖼️ Screenshots & Demos
+## 🖼️ Screenshots
 
-### Game Lobby
-Players can create, join, or manage games from the lobby.
+### Gameplay
+Alex finds the dogs and keeps the turn, then misses on apple and banana, so the turn passes to Sam.
 
-![Game Lobby](docs/gifs/lobby.png)
+![Gameplay](docs/screenshots/gameplay.gif)
 
-### Gameplay in Action
-Watch a full turn: flipping tiles, finding matches, and tracking scores.
+### Start page
+![Start page](docs/screenshots/home.png)
 
-![Gameplay Demo](docs/gifs/gameplay.gif)
+### Lobby
+Create a game, join an open one, or delete games you created. The list refreshes on its own when someone joins.
 
-### Card Matching Close-up
-Flip cards to find matching pairs — matched tiles turn green!
+![Lobby](docs/screenshots/lobby.png)
 
-![Card Flip Animation](docs/gifs/card-flip.gif)
+### Your turn
+The side panel shows whose turn it is, the score and every move so far.
 
-### Completed Game
-Final scoreboard with winner announcement and full move history.
+![Game in progress](docs/screenshots/game.png)
 
-![Game Completed](docs/gifs/game-completed.png)
+### Finished game
+![Finished game](docs/screenshots/game-finished.png)
 
-### Additional Screenshots
-<img width="1134" height="710" alt="image" src="https://github.com/user-attachments/assets/af75c6db-cae5-493f-948b-349cf5943e87" />
-<img width="1092" height="1005" alt="image" src="https://github.com/user-attachments/assets/3cd9cf71-9317-444b-897c-2e17e0774cca" />
-<img width="1027" height="1066" alt="image" src="https://github.com/user-attachments/assets/38803ca6-9f54-4209-8caf-fd221eb7daf6" />
-<img width="1079" height="1081" alt="image" src="https://github.com/user-attachments/assets/88c7b8bd-6d95-4992-96ae-f12245ee4355" />
+### Deck admin
+Add, edit and remove the cards that new games are dealt from.
+
+![Deck admin](docs/screenshots/deck.png)
+
+### Log in
+![Log in](docs/screenshots/login.png)
+
+### On a phone
+![Mobile](docs/screenshots/mobile.png)
 
 ---
 

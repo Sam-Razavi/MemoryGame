@@ -1,4 +1,11 @@
-﻿// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-// for details on configuring this project to bundle and minify static web assets.
+// Mobile navigation toggle
+(function () {
+    const toggle = document.querySelector('.nav-toggle');
+    const nav = document.getElementById('mainNav');
+    if (!toggle || !nav) return;
 
-// Write your JavaScript code.
+    toggle.addEventListener('click', function () {
+        const open = nav.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+})();

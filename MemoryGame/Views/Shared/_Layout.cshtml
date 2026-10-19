@@ -1,7 +1,9 @@
-﻿@using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Http
 @{
     var userId = Context.Session.GetInt32("UserID");
     var username = Context.Session.GetString("Username");
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    string Active(string name) => string.Equals(controller, name, StringComparison.OrdinalIgnoreCase) ? "active" : "";
 }
 
 <!DOCTYPE html>
@@ -9,107 +11,61 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - MemoryGame</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <title>@ViewData["Title"] - Memory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Public+Sans:wght@400;600&display=swap" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/MemoryGame.styles.css" asp-append-version="true" />
-    <style>
-        /* Simple extra polish for presentation */
-        .navbar-custom {
-            background: linear-gradient(90deg, #0d6efd 0%, #6610f2 100%);
-        }
-
-        .navbar-brand, .nav-link, .navbar-text {
-            color: #fff !important;
-        }
-
-            .nav-link:hover {
-                text-decoration: underline;
-            }
-
-        .footer-custom {
-            background: #0d6efd;
-            color: #f8f9fa;
-        }
-
-            .footer-custom a {
-                color: #f8f9fa;
-                text-decoration: underline;
-            }
-
-        .course-title {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: rgba(255,255,255,0.85);
-        }
-    </style>
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-custom shadow-sm mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand fw-bold" asp-area="" asp-controller="Home" asp-action="Index">
-                    🎮 MemoryGame
-                </a>
+    <header class="topbar">
+        <div class="container topbar-inner">
+            <a class="brand" asp-controller="Home" asp-action="Index">
+                <span class="brand-cards" aria-hidden="true"></span>
+                Memory
+            </a>
 
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
-                        aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
+            <button class="nav-toggle" type="button" aria-controls="mainNav" aria-expanded="false" aria-label="Menu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+            </button>
 
-                <div class="collapse navbar-collapse" id="mainNav">
-                    <ul class="navbar-nav me-auto mb-2 mb-sm-0">
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Game" asp-action="Lobby">Lobby</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="CardAdmin" asp-action="Index">Cards Admin</a>
-                        </li>
-                    </ul>
+            <nav class="nav" id="mainNav">
+                <a class="nav-link @Active("Game")" asp-controller="Game" asp-action="Lobby">Lobby</a>
+                <a class="nav-link @Active("CardAdmin")" asp-controller="CardAdmin" asp-action="Index">Deck</a>
 
-                    <!-- Right side -->
-                    <div class="d-flex align-items-center ms-auto">
-                        <span class="course-title me-3">
-                            Databasteknik och Webbaserade System
-                        </span>
-
-                        @if (userId is not null)
-                        {
-                            <span class="text-light me-2">👋 @username</span>
-                            <form method="post" asp-controller="Account" asp-action="Logout" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
-                            </form>
-                        }
-                        else
-                        {
-                            <a class="btn btn-outline-light btn-sm me-2" asp-controller="Account" asp-action="Login">Login</a>
-                            <a class="btn btn-light btn-sm text-primary" asp-controller="Account" asp-action="Register">Register</a>
-                        }
-                    </div>
+                <div class="nav-user">
+                    @if (userId is not null)
+                    {
+                        <span class="muted">Signed in as <strong>@username</strong></span>
+                        <form method="post" asp-controller="Account" asp-action="Logout" class="inline-form">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="link-btn">Log out</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a class="nav-link" asp-controller="Account" asp-action="Login">Log in</a>
+                        <a class="btn btn-sm" asp-controller="Account" asp-action="Register">Sign up</a>
+                    }
                 </div>
-            </div>
-        </nav>
+            </nav>
+        </div>
     </header>
 
-    <div class="container mt-3">
-        <main role="main" class="pb-3">
+    <main role="main" class="main">
+        <div class="container">
             @RenderBody()
-        </main>
-    </div>
+        </div>
+    </main>
 
-    <footer class="footer-custom mt-4 py-3">
-        <div class="container d-flex justify-content-between">
-            <span>&copy; 2025 - MemoryGame</span>
-            <span><a asp-controller="Home" asp-action="Privacy">Privacy</a></span>
+    <footer class="footer">
+        <div class="container footer-inner">
+            <span>Memory &middot; a school project for Databasteknik och webbaserade system, IT-Högskolan</span>
+            <a asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

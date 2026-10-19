@@ -1,65 +1,61 @@
-﻿@model IEnumerable<MemoryGame.Models.Card>
+@model IEnumerable<MemoryGame.Models.Card>
 @{
-    ViewData["Title"] = "Cards";
+    ViewData["Title"] = "Deck";
+    var cards = Model?.ToList() ?? new List<MemoryGame.Models.Card>();
 }
 
-<h2 class="mb-3">Cards</h2>
-
-@if (TempData["Info"] != null)
-{
-    <div class="alert alert-info">@TempData["Info"]</div>
-}
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger">@TempData["Error"]</div>
-}
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <a asp-action="Create" class="btn btn-primary">Create New Card</a>
-    <span class="text-muted">@((Model?.Count() ?? 0)) items</span>
+<div class="page-head">
+    <div>
+        <h1>Deck</h1>
+        <p class="muted">@cards.Count cards. New games pick their cards from this list.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary">Add card</a>
 </div>
 
-@if (!(Model?.Any() ?? false))
+<partial name="_Alerts" />
+
+@if (!cards.Any())
 {
-    <div class="alert alert-secondary">
-        No cards found. Click <strong>Create New Card</strong> to add your first one.
+    <div class="panel empty">
+        The deck is empty. A default set of cards is added the first time someone starts a game,
+        or you can add your own.
     </div>
 }
 else
 {
-    <table class="table table-striped align-middle">
-        <thead>
-            <tr>
-                <th style="width:90px;">ID</th>
-                <th>Name</th>
-                <th>PairKey</th>
-                <th style="width:200px;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var c in Model!)
-            {
+    <div class="panel table-scroll">
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>@c.CardID</td>
-                    <td>@c.Name</td>
-                    <td>@c.PairKey</td>
-                    <td>
-                        <div class="d-flex gap-2">
-                            <a asp-action="Edit" asp-route-id="@c.CardID" class="btn btn-sm btn-outline-primary">Edit</a>
-
-                            <form asp-action="Delete" method="post" class="m-0">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@c.CardID" />
-                                <button class="btn btn-sm btn-danger"
-                                        type="submit"
-                                        onclick="return confirm('Delete card #@c.CardID (@c.Name)?');">
-                                    Delete
-                                </button>
-                            </form>
-                        </div>
-                    </td>
+                    <th>Card</th>
+                    <th>Pair key</th>
+                    <th class="hide-sm">ID</th>
+                    <th></th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var c in cards)
+                {
+                    <tr>
+                        <td><span class="mini-card">@(CardArt.Emoji(c.Name) ?? CardArt.Monogram(c.Name))</span>@c.Name</td>
+                        <td class="code">@c.PairKey</td>
+                        <td class="num faint hide-sm">@c.CardID</td>
+                        <td>
+                            <div class="actions">
+                                <a asp-action="Edit" asp-route-id="@c.CardID" class="link-btn">Edit</a>
+                                <form asp-action="Delete" method="post" class="inline-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@c.CardID" />
+                                    <button class="link-btn danger" type="submit"
+                                            onclick="return confirm('Delete card #@c.CardID (@c.Name)?');">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
