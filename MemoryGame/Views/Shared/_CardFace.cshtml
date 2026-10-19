@@ -1,0 +1,15 @@
+@model string
+@{
+    var emoji = CardArt.Emoji(Model);
+}
+<div class="tile-side tile-face">
+    @if (emoji != null)
+    {
+        <span class="tile-art">@emoji</span>
+    }
+    else
+    {
+        <span class="tile-monogram">@CardArt.Monogram(Model)</span>
+    }
+    <span class="tile-name">@Model</span>
+</div>

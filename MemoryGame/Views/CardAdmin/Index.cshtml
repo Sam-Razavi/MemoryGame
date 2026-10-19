@@ -1,65 +1,73 @@
-﻿@model IEnumerable<MemoryGame.Models.Card>
+@model IEnumerable<MemoryGame.Models.Card>
 @{
     ViewData["Title"] = "Cards";
+    var cards = Model?.ToList() ?? new List<MemoryGame.Models.Card>();
+    int pairCount = cards.Select(c => c.PairKey).Distinct().Count();
 }
 
-<h2 class="mb-3">Cards</h2>
-
-@if (TempData["Info"] != null)
-{
-    <div class="alert alert-info">@TempData["Info"]</div>
-}
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger">@TempData["Error"]</div>
-}
-
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <a asp-action="Create" class="btn btn-primary">Create New Card</a>
-    <span class="text-muted">@((Model?.Count() ?? 0)) items</span>
+<div class="page-header">
+    <div>
+        <div class="eyebrow">@Icons.Get("layers", 14) Card library</div>
+        <h1 class="page-title">Cards</h1>
+        <p class="page-subtitle">
+            @cards.Count cards across @pairCount pair@(pairCount == 1 ? "" : "s"). Cards that share a pair key match each other.
+        </p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary btn-lg">@Icons.Get("plus", 18) New card</a>
 </div>
 
-@if (!(Model?.Any() ?? false))
+<partial name="_Alerts" />
+
+@if (!cards.Any())
 {
-    <div class="alert alert-secondary">
-        No cards found. Click <strong>Create New Card</strong> to add your first one.
+    <div class="panel empty">
+        <div class="empty-icon">@Icons.Get("layers", 28)</div>
+        <h3>No cards yet</h3>
+        <p>Create your first card to build the deck. Games will seed a default set if the deck is empty.</p>
+        <a asp-action="Create" class="btn btn-primary">@Icons.Get("plus", 16) Create a card</a>
     </div>
 }
 else
 {
-    <table class="table table-striped align-middle">
-        <thead>
-            <tr>
-                <th style="width:90px;">ID</th>
-                <th>Name</th>
-                <th>PairKey</th>
-                <th style="width:200px;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var c in Model!)
-            {
+    <div class="panel table-wrap">
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>@c.CardID</td>
-                    <td>@c.Name</td>
-                    <td>@c.PairKey</td>
-                    <td>
-                        <div class="d-flex gap-2">
-                            <a asp-action="Edit" asp-route-id="@c.CardID" class="btn btn-sm btn-outline-primary">Edit</a>
-
-                            <form asp-action="Delete" method="post" class="m-0">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@c.CardID" />
-                                <button class="btn btn-sm btn-danger"
-                                        type="submit"
-                                        onclick="return confirm('Delete card #@c.CardID (@c.Name)?');">
-                                    Delete
-                                </button>
-                            </form>
-                        </div>
-                    </td>
+                    <th>Card</th>
+                    <th>Pair key</th>
+                    <th>ID</th>
+                    <th><span class="sr-only">Actions</span></th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var c in cards)
+                {
+                    var emoji = CardArt.Emoji(c.Name);
+                    <tr>
+                        <td>
+                            <div class="card-name">
+                                <span class="card-preview" style="--h:@CardArt.Hue(c.Name)">@(emoji ?? CardArt.Monogram(c.Name))</span>
+                                @c.Name
+                            </div>
+                        </td>
+                        <td><span class="chip">@c.PairKey</span></td>
+                        <td class="text-dim mono">#@c.CardID</td>
+                        <td>
+                            <div class="actions">
+                                <a asp-action="Edit" asp-route-id="@c.CardID" class="btn btn-sm">@Icons.Get("pencil", 14) Edit</a>
+                                <form asp-action="Delete" method="post" class="inline-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@c.CardID" />
+                                    <button class="btn btn-danger btn-sm btn-icon" type="submit" title="Delete card" aria-label="Delete @c.Name"
+                                            onclick="return confirm('Delete card #@c.CardID (@c.Name)?');">
+                                        @Icons.Get("trash", 15)
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }

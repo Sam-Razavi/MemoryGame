@@ -1,35 +1,117 @@
-﻿@{
+﻿@using Microsoft.AspNetCore.Http
+@{
     ViewData["Title"] = "Home";
+    bool signedIn = Context.Session.GetInt32("UserID") is not null;
+
+    // Demo board: (card, matched, flip delay in seconds; null = stays face down)
+    var demo = new (string Name, bool Matched, double? Delay)[]
+    {
+        ("Cat", true, null),   ("Apple", false, 0.0), ("Dog", false, null),  ("Star", false, 3.0),
+        ("Rocket", false, null), ("Banana", false, 1.5), ("Cat", true, null), ("Fox", false, null),
+        ("Apple", false, 0.6), ("Moon", false, null), ("Star", false, 3.6), ("Dog", false, 4.5),
+        ("Fox", false, null), ("Banana", false, 2.1), ("Rocket", false, null), ("Moon", false, 5.0),
+    };
 }
 
-<!-- Hero Section -->
-<div class="text-center mt-5">
-    <div class="hero-container">
-        <img src="./images/memory-hero.png" alt="Memory Game Hero" class="hero-img mb-4 shadow-lg" />
-        <h1 class="display-4 fw-bold text-primary">Welcome to MemoryGame</h1>
-        <p class="lead text-muted">
-            A turn-based multiplayer memory challenge built for the course<br />
-            <strong>Databasteknik och Webbaserade System</strong>.
+<section class="hero">
+    <div>
+        <div class="hero-badge"><span>Live</span> Real-time two-player matches</div>
+        <h1 class="hero-title">
+            Flip. Match.<br />
+            <span class="text-gradient">Outsmart.</span>
+        </h1>
+        <p class="hero-lead">
+            A turn-based memory duel. Challenge a friend, uncover pairs, and keep the streak going —
+            every match earns you another turn.
         </p>
-        <a asp-controller="Game" asp-action="Lobby" class="btn btn-lg btn-primary mt-3 shadow-sm">
-            🎮 Start Playing
+        <div class="hero-actions">
+            <a asp-controller="Game" asp-action="Lobby" class="btn btn-primary btn-lg">
+                @Icons.Get("play", 18) Start playing
+            </a>
+            @if (!signedIn)
+            {
+                <a asp-controller="Account" asp-action="Register" class="btn btn-lg">Create free account</a>
+            }
+            else
+            {
+                <a asp-controller="CardAdmin" asp-action="Index" class="btn btn-lg">Manage cards</a>
+            }
+        </div>
+        <div class="hero-meta">
+            <div><strong>2</strong>players</div>
+            <div><strong>16</strong>cards</div>
+            <div><strong>8</strong>pairs to find</div>
+        </div>
+    </div>
+
+    <div class="demo" aria-hidden="true">
+        <div class="demo-board">
+            @foreach (var d in demo)
+            {
+                <div class="tile @(d.Matched ? "tile-matched" : d.Delay.HasValue ? "" : "tile-static")"
+                     style="--h:@CardArt.Hue(d.Name); @(d.Delay.HasValue ? $"--d:{d.Delay.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}s" : "")">
+                    <div class="tile-inner">
+                        <div class="tile-side tile-back"><partial name="_BrandMark" /></div>
+                        <partial name="_CardFace" model="d.Name" />
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="section-head">
+        <div class="eyebrow">Why you'll love it</div>
+        <h2>Built for fast, fair head-to-heads</h2>
+        <p>Everything you need for a quick game with a friend — nothing you don't.</p>
+    </div>
+    <div class="features">
+        <div class="panel feature">
+            <div class="feature-icon">@Icons.Get("users", 22)</div>
+            <h3>Turn-based duels</h3>
+            <p>Create a game, share the lobby and play head-to-head. Find a pair and you keep your turn.</p>
+        </div>
+        <div class="panel feature">
+            <div class="feature-icon">@Icons.Get("radio", 22)</div>
+            <h3>Live updates</h3>
+            <p>The board refreshes the moment your opponent moves, so you never miss a flip.</p>
+        </div>
+        <div class="panel feature">
+            <div class="feature-icon">@Icons.Get("history", 22)</div>
+            <h3>Full move history</h3>
+            <p>Every turn is recorded with scores tracked in real time until a winner is crowned.</p>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="section-head">
+        <div class="eyebrow">How it works</div>
+        <h2>Three steps to your first win</h2>
+    </div>
+    <div class="steps">
+        <div class="panel step">
+            <h3>Create a game</h3>
+            <p>Open the lobby and start a new match in one click.</p>
+        </div>
+        <div class="panel step">
+            <h3>Invite a rival</h3>
+            <p>Your opponent joins from the lobby and the game begins.</p>
+        </div>
+        <div class="panel step">
+            <h3>Find the pairs</h3>
+            <p>Flip two cards per turn. Most pairs at the end wins.</p>
+        </div>
+    </div>
+
+    <div class="panel cta">
+        <div>
+            <h2>Ready when you are.</h2>
+            <p>Jump into the lobby and start your first match.</p>
+        </div>
+        <a asp-controller="Game" asp-action="Lobby" class="btn btn-primary btn-lg">
+            Go to lobby @Icons.Get("arrow-right", 18)
         </a>
     </div>
-</div>
-
-<style>
-    .hero-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 70vh;
-    }
-
-    .hero-img {
-        max-width: 600px;
-        width: 90%;
-        border-radius: 1rem;
-        object-fit: cover;
-    }
-</style>
+</section>

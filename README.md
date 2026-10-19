@@ -41,7 +41,7 @@ This was an **individual school project** that I designed and implemented end-to
 ✅ **Real-time updates** through AJAX polling  
 ✅ **Card Admin CRUD interface** (Create / Read / Update / Delete)  
 ✅ **SQL database integration** for all game entities  
-✅ **Clean Bootstrap 5 interface**  
+✅ **Polished dark UI** with a custom CSS design system and 3D card flips  
 ✅ **Session-based authentication**
 
 ---
@@ -50,7 +50,7 @@ This was an **individual school project** that I designed and implemented end-to
 
 | Layer | Technology |
 |-------|-------------|
-| **Frontend** | HTML5, CSS3, Bootstrap 5, Razor Views |
+| **Frontend** | HTML5, custom CSS design system, Razor Views |
 | **Backend** | ASP.NET Core MVC (C#) |
 | **Database** | Microsoft SQL Server |
 | **Data Access** | Custom Repository Layer (ADO.NET) |

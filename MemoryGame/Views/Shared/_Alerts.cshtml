@@ -1,0 +1,8 @@
+@if (TempData["Info"] != null)
+{
+    <div class="alert" role="status">@Icons.Get("info")<div>@TempData["Info"]</div></div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-error" role="alert">@Icons.Get("alert")<div>@TempData["Error"]</div></div>
+}

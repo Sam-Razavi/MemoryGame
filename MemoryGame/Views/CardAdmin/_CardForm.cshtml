@@ -1,0 +1,39 @@
+@model MemoryGame.Models.Card
+@{
+    var name = string.IsNullOrWhiteSpace(Model?.Name) ? "New card" : Model!.Name;
+}
+
+<div class="form-layout">
+    <div class="panel panel-body">
+        <div asp-validation-summary="ModelOnly" class="field-validation-error"></div>
+
+        <div class="field">
+            <label asp-for="Name" class="label">Name</label>
+            <input asp-for="Name" class="input" placeholder="e.g. Apple" autofocus />
+            <span asp-validation-for="Name" class="field-validation-error"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="PairKey" class="label">Pair key</label>
+            <input asp-for="PairKey" class="input" placeholder="e.g. FRUIT_A" />
+            <div class="hint">Cards with the same pair key form a match.</div>
+            <span asp-validation-for="PairKey" class="field-validation-error"></span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">@Icons.Get("check", 16) Save card</button>
+            <a asp-action="Index" class="btn btn-ghost">Cancel</a>
+        </div>
+    </div>
+
+    <div class="panel preview-panel">
+        <div class="eyebrow">Preview</div>
+        <div class="tile flipped" style="--h:@CardArt.Hue(name)">
+            <div class="tile-inner">
+                <div class="tile-side tile-back"><partial name="_BrandMark" /></div>
+                <partial name="_CardFace" model="name" />
+            </div>
+        </div>
+        <p class="hint" style="margin-top:18px">Names like Apple, Cat or Rocket get artwork automatically. Others show their initial.</p>
+    </div>
+</div>
